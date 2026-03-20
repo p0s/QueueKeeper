@@ -3,7 +3,7 @@ import { verifyRunner, type AcceptJobRequest } from "../../../../lib/demo-agent"
 
 export async function POST(request: Request) {
   const payload = (await request.json()) as AcceptJobRequest;
-  const verification = verifyRunner(payload.verificationPayload);
+  const verification = await verifyRunner(payload.verificationPayload);
 
   if (verification.status !== "verified") {
     return NextResponse.json({
