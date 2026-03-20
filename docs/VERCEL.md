@@ -22,3 +22,9 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 
 ## Demo note
 If `NEXT_PUBLIC_AGENT_BASE_URL` is blank, the hosted app uses built-in Next.js API routes for the planner and runner-accept demo flow.
+
+## Live integration status
+
+- Venice: live-capable server adapter added; activates when `VENICE_API_KEY` is set.
+- Self: live-capable verifier adapter added; activates when `SELF_MODE=live` and `SELF_API_URL` is configured.
+- MetaMask: live wallet/detection surface and delegation hook points documented in the buyer flow; bounded fallback remains for demo reliability.

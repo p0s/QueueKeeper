@@ -1,22 +1,21 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { createPublicClient, http } from "viem";
-import { celoAlfajores } from "viem/chains";
 import {
   buildPlannerDecision,
   toPublicPlannerSummary,
+  type PlannerDecision,
   type PlannerInput,
   type RunnerCandidate,
   type SelfVerificationResult
 } from "@queuekeeper/shared";
 
 const port = Number(process.env.PORT ?? 3001);
-const rpcUrl = process.env.CELO_RPC_URL ?? celoAlfajores.rpcUrls.default.http[0];
+const rpcUrl = process.env.CELO_RPC_URL ?? "https://forno.celo-sepolia.celo-testnet.org";
 const selfMode = process.env.SELF_MODE ?? "mock";
-const veniceMode = process.env.VENICE_MODE ?? "mock";
+const veniceMode = process.env.VENICE_MODE ?? (process.env.VENICE_API_KEY ? "live" : "mock");
 
 const client = createPublicClient({
-  chain: celoAlfajores,
   transport: http(rpcUrl)
 });
 
@@ -36,16 +35,98 @@ type AcceptJobRequest = {
   verificationPayload: {
     reference?: string;
     mockVerified?: boolean;
+    proof?: string;
+    signal?: string;
   };
 };
 
 interface PlannerProvider {
-  decide(input: PlannerInput): Promise<ReturnType<typeof buildPlannerDecision>>;
+  decide(input: PlannerInput): Promise<PlannerDecision>;
 }
 
 class MockVenicePlannerProvider implements PlannerProvider {
   async decide(input: PlannerInput) {
     return buildPlannerDecision(input);
+  }
+}
+
+class LiveVenicePlannerProvider implements PlannerProvider {
+  async decide(input: PlannerInput): Promise<PlannerDecision> {
+    const apiKey = process.env.VENICE_API_KEY;
+    if (!apiKey) {
+      throw new Error("VENICE_API_KEY missing");
+    }
+
+    const response = await fetch("https://api.venice.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: process.env.VENICE_MODEL ?? "venice-uncensored",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are QueueKeeper's private planner. Decide exactly one of: scout-only, scout-then-hold, abort. Return JSON with keys action and reason only."
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              urgency: input.urgency,
+              scoutFee: input.scoutFee,
+              completionBonus: input.completionBonus,
+              maxBudget: input.maxBudget,
+              hiddenExactLocation: input.hiddenExactLocation,
+              hiddenNotes: input.hiddenNotes,
+              candidates: input.candidates
+            })
+          }
+        ],
+        venice_parameters: {
+          include_venice_system_prompt: false
+        },
+        temperature: 0.2,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "queuekeeper_planner_decision",
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                action: {
+                  type: "string",
+                  enum: ["scout-only", "scout-then-hold", "abort"]
+                },
+                reason: {
+                  type: "string"
+                }
+              },
+              required: ["action", "reason"]
+            }
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Venice request failed: ${response.status}`);
+    }
+
+    const json = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = json.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Venice response missing content");
+
+    const parsed = JSON.parse(content) as { action: PlannerDecision["action"]; reason: string };
+    return {
+      action: parsed.action,
+      reason: parsed.reason,
+      chosenRunner: input.candidates.find((candidate) => candidate.verifiedHuman) ?? input.candidates[0]
+    };
   }
 }
 
@@ -71,20 +152,47 @@ class MockSelfVerifier implements SelfVerifier {
   }
 }
 
+class LiveSelfVerifier implements SelfVerifier {
+  async verify(input: AcceptJobRequest["verificationPayload"]): Promise<SelfVerificationResult> {
+    const apiUrl = process.env.SELF_API_URL;
+    if (!apiUrl) throw new Error("SELF_API_URL missing");
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.SELF_API_KEY ? { Authorization: `Bearer ${process.env.SELF_API_KEY}` } : {})
+      },
+      body: JSON.stringify({
+        proof: input.proof,
+        signal: input.signal,
+        reference: input.reference
+      })
+    });
+
+    if (!response.ok) {
+      return {
+        status: "blocked",
+        provider: "self",
+        reference: input.reference ?? "self-live-blocked"
+      };
+    }
+
+    const json = (await response.json()) as { verified?: boolean; reference?: string };
+    return {
+      status: json.verified ? "verified" : "blocked",
+      provider: "self",
+      reference: json.reference ?? input.reference ?? "self-live-reference"
+    };
+  }
+}
+
 function getPlannerProvider(): PlannerProvider {
-  // Real Venice integration plugs in here. Keep the app-facing contract stable so
-  // the provider can swap without rewriting web routes or job orchestration code.
-  return new MockVenicePlannerProvider();
+  return veniceMode === "live" ? new LiveVenicePlannerProvider() : new MockVenicePlannerProvider();
 }
 
 function getSelfVerifier(): SelfVerifier {
-  // A live Self integration should replace this adapter when credentials and
-  // verification wiring are available. The explicit dev flag avoids pretending
-  // that mock verification is production-grade.
-  if (selfMode !== "mock") {
-    throw new Error(`Unsupported SELF_MODE: ${selfMode}`);
-  }
-  return new MockSelfVerifier();
+  return selfMode === "live" ? new LiveSelfVerifier() : new MockSelfVerifier();
 }
 
 function json<T>(status: number, body: T) {
