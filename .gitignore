@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.next
+dist
+out
+coverage
+.env
+.env.*
+!.env.example
+artifacts
+cache
+broadcast
+lib
+synthesis-registration.json
