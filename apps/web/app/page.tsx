@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { JobTimeline } from "../components/job-timeline";
-import { sampleJob } from "../lib/sample-data";
+import { PolicyCard } from "../components/policy-card";
+import { sampleJob, sampleJobs } from "../lib/sample-data";
 
 export default function HomePage() {
   return (
@@ -18,19 +18,25 @@ export default function HomePage() {
             <div className="card"><strong>Privacy</strong><div className="muted">Exact destination hidden until acceptance.</div></div>
             <div className="card"><strong>Receipts</strong><div className="muted">Proof hashes + payout timeline.</div></div>
           </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-            <Link className="button" href="/buyer">Open buyer dashboard</Link>
-            <Link className="button" href="/runner/qk-1">Open runner route</Link>
+          <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
+            <a className="button" href="/buyer">Open buyer dashboard</a>
+            <a className="button" href="/runner">Open runner jobs</a>
+            <a className="button" href="/runner/qk-1">Open active runner job</a>
           </div>
         </section>
         <section className="card">
-          <h2>What was kept private</h2>
+          <h2>Live demo snapshot</h2>
+          <div className="muted">Current stage: {sampleJob.currentStage}</div>
           <ul>
-            {sampleJob.keptPrivate.map((item) => <li key={item}>{item}</li>)}
+            {sampleJobs.map((job) => (
+              <li key={job.id} style={{ marginTop: 10 }}>
+                <strong>{job.title}</strong> — {job.coarseArea} · {job.status}
+              </li>
+            ))}
           </ul>
-          <p className="muted">Public job card only shows the coarse area before acceptance.</p>
         </section>
       </div>
+      <PolicyCard policy={sampleJob.policy} />
       <JobTimeline job={sampleJob} />
     </main>
   );

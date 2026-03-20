@@ -1,4 +1,6 @@
 export type QueueStageKey = "scout" | "arrival" | "heartbeat" | "completion";
+export type QueueJobStatus = "draft" | "posted" | "accepted" | "holding" | "completed" | "expired";
+export type PlannerAction = "scout-only" | "scout-then-hold" | "abort";
 
 export interface QueueStageView {
   key: QueueStageKey;
@@ -9,40 +11,117 @@ export interface QueueStageView {
   timestamp: string;
 }
 
+export interface DelegationPolicyView {
+  mode: "mock-bounded-policy" | "metamask-delegation";
+  spendCap: string;
+  expiry: string;
+  approvedToken: string;
+  approvedContract: string;
+  jobId: string;
+  notes: string[];
+}
+
+export interface RunnerVerificationView {
+  status: "verified" | "pending" | "blocked";
+  provider: "self" | "mock-self";
+  reference: string;
+}
+
 export interface QueueJobView {
   id: string;
   title: string;
   coarseArea: string;
-  status: "draft" | "posted" | "accepted" | "completed" | "expired";
+  exactLocationHint?: string;
+  status: QueueJobStatus;
   maxSpend: string;
   delegationSummary: string;
   runnerVerified: boolean;
+  runnerVerification: RunnerVerificationView;
+  currentStage: string;
   keptPrivate: string[];
+  payoutSummary: string;
   stages: QueueStageView[];
+  policy: DelegationPolicyView;
+}
+
+export interface RunnerCandidate {
+  address: string;
+  score: number;
+  verifiedHuman: boolean;
+  etaMinutes: number;
 }
 
 export interface PlannerInput {
   urgency: "low" | "medium" | "high";
   scoutFee: number;
   completionBonus: number;
+  maxBudget: number;
+  hiddenExactLocation: string;
+  hiddenNotes?: string;
+  candidates: RunnerCandidate[];
 }
 
 export interface PlannerDecision {
-  action: "scout-only" | "scout-then-hold";
+  action: PlannerAction;
   reason: string;
+  chosenRunner?: RunnerCandidate;
+}
+
+export interface PublicPlannerSummary {
+  action: PlannerAction;
+  reason: string;
+  selectedRunnerAddress?: string;
+}
+
+export interface SelfVerificationResult {
+  status: "verified" | "blocked";
+  reference: string;
+  provider: "self" | "mock-self";
 }
 
 export function buildPlannerDecision(input: PlannerInput): PlannerDecision {
+  const sorted = [...input.candidates].sort((a, b) => {
+    const verifiedDelta = Number(b.verifiedHuman) - Number(a.verifiedHuman);
+    if (verifiedDelta !== 0) return verifiedDelta;
+    return a.etaMinutes - b.etaMinutes;
+  });
+
+  const chosenRunner = sorted[0];
+
+  if (!chosenRunner || !chosenRunner.verifiedHuman) {
+    return {
+      action: "abort",
+      reason: "No verified runner candidate met the minimum trust bar."
+    };
+  }
+
+  if (input.maxBudget < input.scoutFee + input.completionBonus) {
+    return {
+      action: "abort",
+      reason: "Buyer budget does not safely cover the requested staged payout plan."
+    };
+  }
+
   if (input.urgency === "high" || input.completionBonus >= input.scoutFee * 4) {
     return {
       action: "scout-then-hold",
-      reason: "Urgency or completion value justifies immediate hold after a positive scout signal."
+      reason: "Urgency or completion upside justifies immediate hold after a positive scout signal.",
+      chosenRunner
     };
   }
 
   return {
     action: "scout-only",
-    reason: "Default to low-risk scouting when urgency and upside are moderate."
+    reason: "Default to low-risk scouting first when urgency and payoff are moderate.",
+    chosenRunner
+  };
+}
+
+export function toPublicPlannerSummary(decision: PlannerDecision): PublicPlannerSummary {
+  return {
+    action: decision.action,
+    reason: decision.reason,
+    selectedRunnerAddress: decision.chosenRunner?.address
   };
 }
 

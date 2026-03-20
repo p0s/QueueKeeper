@@ -7,9 +7,57 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main>
-      <h1>QueueKeeper</h1>
-      <p>Privately hire a verified human to scout and hold a place in line while your agent pays only as proofs arrive.</p>
+    <main class="shell">
+      <section class="hero card">
+        <span class="eyebrow">Private, delegated, escrowed queue procurement</span>
+        <h1>Hire a verified human to hold your place in line — without giving up control.</h1>
+        <p>
+          QueueKeeper lets an agent privately plan a queue errand, bind spend to a single job, and pay a runner only as onchain proofs arrive.
+        </p>
+        <div class="actions">
+          <a href="#how" class="btn primary">How it works</a>
+          <a href="#trust" class="btn secondary">Trust model</a>
+        </div>
+      </section>
+
+      <section class="grid three">
+        <article class="card"><h2>Private by default</h2><p>Exact destination, budget ceiling, and raw proof media stay hidden until they need to be revealed.</p></article>
+        <article class="card"><h2>Pay in stages</h2><p>Scout, arrival, heartbeat, and completion are separate releases. No uncapped spend. No full stranger prepay.</p></article>
+        <article class="card"><h2>Verified runner flow</h2><p>Only verified runners can accept, reveal location, and submit proof hashes for payout.</p></article>
+      </section>
+
+      <section id="how" class="card">
+        <h2>How it works</h2>
+        <ol>
+          <li>Buyer creates a private queue job and sets a capped payout plan.</li>
+          <li>Agent decides whether to scout first, hold immediately, or abort.</li>
+          <li>Verified runner accepts from a mobile-friendly flow.</li>
+          <li>Proof hashes unlock staged onchain payments.</li>
+          <li>Buyer gets a clean receipts timeline without leaking everything publicly.</li>
+        </ol>
+      </section>
+
+      <section id="trust" class="grid two">
+        <article class="card">
+          <h2>What stays private</h2>
+          <ul>
+            <li>Exact destination before acceptance</li>
+            <li>Buyer max willingness to pay</li>
+            <li>Raw proof photos or media</li>
+            <li>Handoff secret</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>What goes onchain</h2>
+          <ul>
+            <li>Escrow funding</li>
+            <li>Acceptance state</li>
+            <li>Proof hashes</li>
+            <li>Stage payouts</li>
+            <li>Refund path on expiry</li>
+          </ul>
+        </article>
+      </section>
     </main>
   </body>
 </html>

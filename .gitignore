@@ -12,3 +12,7 @@ cache
 broadcast
 lib
 synthesis-registration.json
+
+.next
+*.tsbuildinfo
+packages/shared/dist

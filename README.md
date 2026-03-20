@@ -2,13 +2,24 @@
 
 QueueKeeper is a private procurement agent for hiring a verified human to scout or hold a place in line with staged escrow, bounded spend, and redacted receipts.
 
-## Monorepo layout
+## What the demo shows
+
+- buyer creates a queue job with staged payouts
+- bounded permission policy with spend cap / expiry / token / contract restrictions
+- mobile-friendly runner job list and active job route
+- proof hash timeline for scout / arrival / heartbeat / completion
+- planner service with Venice-style adapter boundary
+- Self verification boundary with explicit dev-only mock adapter
+- minimal staged escrow contract + passing Foundry tests
+
+## Repo layout
 
 - `apps/web` — Next.js buyer + runner UI
-- `apps/agent` — Node/TypeScript agent service
+- `apps/agent` — Node/TypeScript planner + verification service
 - `contracts` — Foundry contracts + tests
-- `packages/shared` — shared types and ABI placeholders
-- `WEBSITE` — static landing page scaffold
+- `packages/shared` — shared types and adapter-facing contracts
+- `docs` — submission and asset planning docs
+- `WEBSITE` — GitHub Pages landing page
 
 ## Quick start
 
@@ -16,7 +27,7 @@ QueueKeeper is a private procurement agent for hiring a verified human to scout 
 
 - Node.js 22+
 - pnpm 10+
-- Foundry (`forge`, `anvil`) for contracts
+- Foundry (`forge`, `anvil`)
 
 ### Install
 
@@ -24,58 +35,67 @@ QueueKeeper is a private procurement agent for hiring a verified human to scout 
 pnpm install
 ```
 
-### Run the web app
+### Run web
 
 ```bash
 pnpm dev:web
 ```
 
-### Run the agent service
+### Run agent service
 
 ```bash
 pnpm dev:agent
 ```
 
-### Typecheck
+### Validate
 
 ```bash
 pnpm typecheck
-```
-
-### Lint
-
-```bash
 pnpm lint
-```
-
-### Contract tests
-
-```bash
-cd contracts
-forge test
+pnpm build
+cd contracts && forge test -vv
 ```
 
 ## Environment
 
-Copy these examples before running locally:
+Copy and fill:
 
 - `apps/web/.env.example`
 - `apps/agent/.env.example`
 
 No secrets belong in git.
 
-## MVP notes
+## Screens to capture
 
-This repo intentionally ships the smallest structure that supports:
+See `docs/SCREENSHOT_CHECKLIST.md`.
 
-- buyer job creation
-- mobile-friendly runner route
-- staged escrow contract + tests
-- shared types for app/agent/contract integration
+## Cover image direction
+
+See `docs/COVER_IMAGE_CONCEPT.md`.
+
+## Submission copy
+
+See `docs/SUBMISSION_COPY.md`.
+
+## Integration notes
+
+### MetaMask delegation
+The current UI ships a **compatible bounded permission flow** with the same load-bearing fields required for MetaMask delegation:
+- spend cap
+- expiry
+- approved token
+- approved contract
+- per-job binding
+
+Code comments mark the exact buyer-flow hook where live MetaMask delegation should replace the fallback policy record.
+
+### Venice planner
+The planner service accepts hidden buyer fields server-side and returns only a public-safe summary. The provider interface is intentionally swappable so a live Venice client can replace the mock planner without changing web routes.
+
+### Self verification
+Runner acceptance goes through a verification adapter. In dev mode the repo uses a mock adapter only behind `SELF_MODE=mock`. The interface is ready for a live Self-backed verifier.
 
 ## Remote
-
-Expected remote:
 
 ```bash
 git remote add origin https://github.com/p0s/QueueKeeper/
