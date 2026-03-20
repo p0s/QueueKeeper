@@ -24,3 +24,5 @@ Show the full trust loop in under 4 minutes.
 
 
 Live app URL: `https://web-nu-two-34.vercel.app`
+
+12. Show the real scout payout release transaction on Celo Sepolia: https://celo-sepolia.blockscout.com/tx/0x391524f5123a3e77ec26f732a9239e3abaca6553704f03662f700edb72a01980

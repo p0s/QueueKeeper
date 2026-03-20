@@ -49,3 +49,9 @@
 - Agent embedded planner and runner-accept demo API routes directly into the hosted Next.js app so the public deployment no longer depended on a localhost-only backend.
 - Agent redeployed the app on Vercel and verified the hosted planner and accept endpoints returned successful responses.
 - Result: the live demo now behaves end-to-end in a self-contained hosted frontend.
+
+
+## 2026-03-20 13:05–13:12 UTC
+- Human asked to finish what was still missing against the spec.
+- Agent executed a real onchain demo flow on Celo Sepolia using the deployed escrow: created a job, accepted it, submitted proof, and released the scout payout.
+- Result: QueueKeeper now has a real live milestone payment transaction to show judges, not just deployed contracts and mocked UI.
