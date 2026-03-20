@@ -104,3 +104,11 @@ git remote add origin https://github.com/p0s/QueueKeeper/
 ## Celo Sepolia deployment
 
 See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
+
+## Deployed Celo Sepolia contracts
+
+- Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
+- Delegation policy: `0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3`
+- Proof registry: `0xc049de0d689bdf0186407a03708204c9e4199e49`
+- Explorer base: `https://celo-sepolia.blockscout.com`
+
