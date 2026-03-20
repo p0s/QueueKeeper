@@ -101,6 +101,6 @@ Runner acceptance goes through a verification adapter. In dev mode the repo uses
 git remote add origin https://github.com/p0s/QueueKeeper/
 ```
 
-## Alfajores deployment
+## Celo Sepolia deployment
 
-See `docs/ALFAJORES_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
+See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
