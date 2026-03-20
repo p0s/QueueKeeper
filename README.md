@@ -105,6 +105,24 @@ git remote add origin https://github.com/p0s/QueueKeeper/
 
 See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
 
+## Vercel app deployment
+
+Deploy `apps/web` to Vercel as the public app frontend.
+
+Recommended Vercel project settings:
+- Root Directory: `apps/web`
+- Install Command: `cd ../.. && pnpm install --frozen-lockfile`
+- Build Command: `cd ../.. && pnpm --filter @queuekeeper/web build`
+
+Required env vars for the Vercel project:
+- `NEXT_PUBLIC_AGENT_BASE_URL`
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_CELO_CHAIN_ID=11142220`
+- `NEXT_PUBLIC_QUEUEKEEPER_ESCROW_ADDRESS=0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
+- `NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://celo-sepolia.blockscout.com`
+
+If the agent service is not publicly hosted, the Vercel deployment can still serve as the buyer/runner demo frontend with local/mock-backed flows.
+
 ## Deployed Celo Sepolia contracts
 
 - Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
@@ -113,7 +131,3 @@ See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deploym
 - Explorer base: `https://celo-sepolia.blockscout.com`
 
 
-## GitHub Pages frontend
-
-The public landing page is deployed from `WEBSITE/` via GitHub Pages.
-See `docs/GITHUB_PAGES.md` for the exact setup and expected URL pattern.
