@@ -19,3 +19,23 @@
 - Human approved use of the QueueKeeper deploy key for git push.
 - Agent pushed local commits directly to `origin main`.
 - Result: remote QueueKeeper repo updated with current MVP scaffold.
+
+## 2026-03-20 11:45–11:57 UTC
+- Agent aligned deployment defaults with current Celo testnet reality and switched the repo from Alfajores assumptions to Celo Sepolia.
+- Agent deployed the QueueKeeper escrow, delegation policy, and proof registry contracts on Celo Sepolia and exported live addresses into the shared package and docs.
+- Result: the repo now points at live testnet contract artifacts and explorer-ready addresses.
+
+## 2026-03-20 12:00–12:04 UTC
+- Hosting strategy was simplified from split static hosting to a single Vercel-first frontend plan for the Next.js app.
+- Repo docs and deployment config were updated to make the app deployment path clearer and less fragile for submission.
+- Result: frontend hosting guidance is consistent and product-focused.
+
+## 2026-03-20 12:18–12:31 UTC
+- Agent authenticated Vercel CLI, corrected project settings for the monorepo, upgraded Next.js to a patched version, and fixed deployment blockers.
+- Agent deployed the public frontend successfully on Vercel and pushed the matching repo changes to main.
+- Result: QueueKeeper now has a live public app URL plus live Celo Sepolia contracts.
+
+## 2026-03-20 12:32–12:33 UTC
+- Human requested consistent git identity hygiene for the public repo history.
+- Agent normalized local git config and rewrote published commit authorship to the project noreply identity without changing feature scope.
+- Result: repo history is cleaner for judging and public review.
