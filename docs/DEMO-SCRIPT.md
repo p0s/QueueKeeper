@@ -21,3 +21,6 @@ Show the full trust loop in under 4 minutes.
 - show where Celo contract deployment slots into env config
 
 11. Show live explorer links for escrow and policy contracts on Celo Sepolia.
+
+
+Live app URL: `https://web-nu-two-34.vercel.app`

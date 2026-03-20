@@ -39,3 +39,13 @@
 - Human requested consistent git identity hygiene for the public repo history.
 - Agent normalized local git config and rewrote published commit authorship to the project noreply identity without changing feature scope.
 - Result: repo history is cleaner for judging and public review.
+
+## 2026-03-20 12:18–12:31 UTC
+- Agent authenticated Vercel CLI, corrected project settings for the monorepo, and upgraded Next.js to a patched version accepted by Vercel.
+- Agent deployed the public frontend on Vercel and committed the deployment fixes back to the repo.
+- Result: QueueKeeper gained a live public frontend URL suitable for judging.
+
+## 2026-03-20 12:57–13:02 UTC
+- Agent embedded planner and runner-accept demo API routes directly into the hosted Next.js app so the public deployment no longer depended on a localhost-only backend.
+- Agent redeployed the app on Vercel and verified the hosted planner and accept endpoints returned successful responses.
+- Result: the live demo now behaves end-to-end in a self-contained hosted frontend.

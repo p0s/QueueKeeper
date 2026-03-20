@@ -131,3 +131,8 @@ If `NEXT_PUBLIC_AGENT_BASE_URL` is blank, the hosted app uses built-in Next.js A
 - Explorer base: `https://celo-sepolia.blockscout.com`
 
 
+
+## Live app
+
+- App: `https://web-nu-two-34.vercel.app`
+- Contracts: see the deployed Celo Sepolia addresses below.
