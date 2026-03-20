@@ -126,3 +126,5 @@ export function toPublicPlannerSummary(decision: PlannerDecision): PublicPlanner
 }
 
 export const queueKeeperEscrowAbi = [] as const;
+
+export { deployedAddresses } from "./generated/addresses.js";

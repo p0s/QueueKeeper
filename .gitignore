@@ -16,3 +16,5 @@ synthesis-registration.json
 .next
 *.tsbuildinfo
 packages/shared/dist
+
+.secrets

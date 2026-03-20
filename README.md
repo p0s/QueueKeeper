@@ -100,3 +100,7 @@ Runner acceptance goes through a verification adapter. In dev mode the repo uses
 ```bash
 git remote add origin https://github.com/p0s/QueueKeeper/
 ```
+
+## Alfajores deployment
+
+See `docs/ALFAJORES_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
