@@ -112,3 +112,8 @@ See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deploym
 - Proof registry: `0xc049de0d689bdf0186407a03708204c9e4199e49`
 - Explorer base: `https://celo-sepolia.blockscout.com`
 
+
+## GitHub Pages frontend
+
+The public landing page is deployed from `WEBSITE/` via GitHub Pages.
+See `docs/GITHUB_PAGES.md` for the exact setup and expected URL pattern.

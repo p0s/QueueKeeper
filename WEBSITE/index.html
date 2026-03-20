@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>QueueKeeper</title>
+    <meta name="description" content="QueueKeeper lets a user privately hire a verified human to scout and hold a place in line while an agent pays only as onchain proofs arrive." />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,7 +17,7 @@
         </p>
         <div class="actions">
           <a href="#how" class="btn primary">How it works</a>
-          <a href="#trust" class="btn secondary">Trust model</a>
+          <a href="#live" class="btn secondary">Live contracts</a>
         </div>
       </section>
 
@@ -37,24 +38,22 @@
         </ol>
       </section>
 
-      <section id="trust" class="grid two">
+      <section id="live" class="grid two">
         <article class="card">
-          <h2>What stays private</h2>
+          <h2>Live Celo Sepolia contracts</h2>
           <ul>
-            <li>Exact destination before acceptance</li>
-            <li>Buyer max willingness to pay</li>
-            <li>Raw proof photos or media</li>
-            <li>Handoff secret</li>
+            <li>Escrow: <code>0xb566298bf1c1afa55f0edc514b2f9d990c82f98c</code></li>
+            <li>Delegation policy: <code>0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3</code></li>
+            <li>Proof registry: <code>0xc049de0d689bdf0186407a03708204c9e4199e49</code></li>
           </ul>
         </article>
         <article class="card">
-          <h2>What goes onchain</h2>
+          <h2>Why this is not just a gig app</h2>
           <ul>
-            <li>Escrow funding</li>
-            <li>Acceptance state</li>
-            <li>Proof hashes</li>
-            <li>Stage payouts</li>
-            <li>Refund path on expiry</li>
+            <li>The agent has bounded spend, not a blank check.</li>
+            <li>The privacy model is load-bearing.</li>
+            <li>The runner is paid for verifiable progress.</li>
+            <li>The money flow is onchain and inspectable.</li>
           </ul>
         </article>
       </section>
