@@ -10,6 +10,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@metamask/smart-accounts-kit": "0.4.0-beta.1",
     "@queuekeeper/shared": "workspace:*",
     "next": "15.5.14",
     "react": "19.0.0",

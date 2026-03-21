@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { requestQueueKeeperAdvancedPermissions } from "../lib/metamask-smart-account";
 
 type WalletPanelProps = {
   connected?: boolean;
@@ -47,12 +48,16 @@ export function WalletPanel({ connected = false, funded = false, onDelegationSta
     }
 
     try {
-      await ethereum.request({
-        method: "wallet_requestPermissions",
-        params: [{ eth_accounts: {} }]
+      await requestQueueKeeperAdvancedPermissions({
+        chainId: Number(process.env.NEXT_PUBLIC_CELO_CHAIN_ID ?? 11142220),
+        expiry: Math.floor(Date.now() / 1000) + 3 * 3600,
+        tokenAddress: "0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6",
+        contractAddress: "0xb566298bf1c1afa55f0edc514b2f9d990c82f98c",
+        spendCap: 40_000000000000000000n,
+        justification: "QueueKeeper job-specific queue procurement permission with capped spend and expiry"
       });
 
-      setDelegationStatus("advanced permission request sent");
+      setDelegationStatus("ERC-7715 permission granted or requested");
       onDelegationStateChange?.(true);
     } catch (error) {
       setDelegationStatus(error instanceof Error ? error.message : "delegation request failed");
