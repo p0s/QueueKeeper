@@ -20,3 +20,4 @@ packages/shared/dist
 .secrets
 .queuekeeper-data
 .queuekeeper-object-store
+.vercel
