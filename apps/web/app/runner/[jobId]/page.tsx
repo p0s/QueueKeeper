@@ -1,7 +1,30 @@
 import { RunnerJobDemo } from "../../../components/runner-job-demo";
-import { sampleJob } from "../../../lib/sample-data";
+import { getDemoJob } from "../../../lib/demo-store";
+import { notFound } from "next/navigation";
 
-export default async function RunnerJobPage({ params }: { params: Promise<{ jobId: string }> }) {
+export const dynamic = "force-dynamic";
+
+export default async function RunnerJobPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ jobId: string }>;
+  searchParams: Promise<{ revealToken?: string }>;
+}) {
   const { jobId } = await params;
-  return <RunnerJobDemo initialJob={sampleJob} jobId={jobId} />;
+  const { revealToken } = await searchParams;
+  const job = getDemoJob(jobId, "runner", revealToken);
+
+  if (!job) {
+    notFound();
+  }
+
+  return (
+    <RunnerJobDemo
+      initialJob={job}
+      initialRevealToken={revealToken}
+      jobId={jobId}
+      liveSelfMode={process.env.SELF_MODE === "live"}
+    />
+  );
 }

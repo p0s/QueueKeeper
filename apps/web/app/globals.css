@@ -17,14 +17,24 @@ body { min-height: 100vh; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
 .muted { color: var(--muted); }
 .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(124,156,255,.12); border: 1px solid rgba(124,156,255,.35); border-radius: 999px; font-size: 12px; }
-.button { display: inline-flex; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 12px; background: var(--accent); color: #0b1020; font-weight: 700; border: none; }
+.button { display: inline-flex; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 12px; background: var(--accent); color: #0b1020; font-weight: 700; border: none; cursor: pointer; }
+.button:disabled { cursor: not-allowed; opacity: .5; }
 .two-col { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
 .timeline { display: grid; gap: 12px; }
 .timeline-item { border-left: 2px solid var(--border); padding-left: 12px; }
 .input, .textarea { width: 100%; background: #0d1328; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .textarea { min-height: 100px; resize: vertical; }
-.stage-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.field { display: grid; gap: 8px; }
+.field > span:first-child { font-size: 13px; color: var(--muted); }
+.error { color: #fda4af; font-size: 12px; }
+.checkbox-row { display: flex; gap: 10px; align-items: flex-start; color: var(--muted); }
+.checkbox-row input { margin-top: 2px; }
+.stage-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.action-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.explorer-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.explorer-link { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 6px; background: #0d1328; }
 @media (max-width: 768px) {
   .container { padding: 16px; }
   .two-col, .stage-row { grid-template-columns: 1fr; }
+  .action-row { align-items: stretch; }
 }

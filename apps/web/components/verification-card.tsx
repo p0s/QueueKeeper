@@ -15,6 +15,9 @@ export function VerificationCard({ verification }: { verification: RunnerVerific
         Provider: {verification.provider} · reference: {verification.reference}
       </p>
       <p className="muted">
+        Verified at: {verification.verifiedAt ?? "not yet verified"}
+      </p>
+      <p className="muted">
         Accept is gated by the backend adapter before a runner can reveal exact location or submit proofs.
       </p>
     </section>

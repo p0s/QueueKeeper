@@ -1,6 +1,9 @@
 import { BuyerDemo } from "../../components/buyer-demo";
-import { sampleJob } from "../../lib/sample-data";
+import { getDefaultBuyerDraft, listDemoJobs } from "../../lib/demo-store";
+
+export const dynamic = "force-dynamic";
 
 export default function BuyerPage() {
-  return <BuyerDemo initialJob={sampleJob} />;
+  const jobs = listDemoJobs("buyer");
+  return <BuyerDemo initialDraft={getDefaultBuyerDraft()} initialJob={jobs[0] ?? null} />;
 }

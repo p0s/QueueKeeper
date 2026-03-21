@@ -1,30 +1,59 @@
 export type QueueStageKey = "scout" | "arrival" | "heartbeat" | "completion";
 export type QueueJobStatus = "draft" | "posted" | "accepted" | "holding" | "completed" | "expired";
 export type PlannerAction = "scout-only" | "scout-then-hold" | "abort";
+export type QueueViewerRole = "public" | "buyer" | "runner";
+export type DelegationPolicyMode = "mock-bounded-policy" | "metamask-delegation";
+export type DelegationPolicyStatus = "not-requested" | "requested" | "granted" | "rejected" | "mock-fallback";
+export type QueueStageStatus = "pending-proof" | "awaiting-release" | "released";
+
+export const queueStageOrder: QueueStageKey[] = ["scout", "arrival", "heartbeat", "completion"];
+
+export const queueStageLabels: Record<QueueStageKey, string> = {
+  scout: "Scout",
+  arrival: "Arrival",
+  heartbeat: "Heartbeat",
+  completion: "Completion"
+};
 
 export interface QueueStageView {
   key: QueueStageKey;
   label: string;
   amount: string;
   released: boolean;
+  status: QueueStageStatus;
   proofHash: string;
+  proofSubmittedAt: string | null;
+  releasedAt: string | null;
   timestamp: string;
+  proofTxHash?: string | null;
+  releaseTxHash?: string | null;
 }
 
 export interface DelegationPolicyView {
-  mode: "mock-bounded-policy" | "metamask-delegation";
+  mode: DelegationPolicyMode;
+  status: DelegationPolicyStatus;
   spendCap: string;
   expiry: string;
   approvedToken: string;
   approvedContract: string;
   jobId: string;
   notes: string[];
+  lastResult: string;
+  lastUpdatedAt: string | null;
+  requestor: string | null;
 }
 
 export interface RunnerVerificationView {
   status: "verified" | "pending" | "blocked";
   provider: "self" | "mock-self";
   reference: string;
+  verifiedAt: string | null;
+}
+
+export interface ExplorerLinkView {
+  label: string;
+  href: string;
+  kind: "contract" | "tx";
 }
 
 export interface QueueJobView {
@@ -32,6 +61,7 @@ export interface QueueJobView {
   title: string;
   coarseArea: string;
   exactLocationHint?: string;
+  exactLocationVisibleToViewer?: string | null;
   status: QueueJobStatus;
   maxSpend: string;
   delegationSummary: string;
@@ -42,6 +72,14 @@ export interface QueueJobView {
   payoutSummary: string;
   stages: QueueStageView[];
   policy: DelegationPolicyView;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  selectedRunnerAddress?: string;
+  acceptedRunnerAddress?: string;
+  onchainJobId?: string | null;
+  plannerPreview?: PublicPlannerSummary;
+  explorerLinks: ExplorerLinkView[];
 }
 
 export interface RunnerCandidate {
@@ -77,6 +115,76 @@ export interface SelfVerificationResult {
   status: "verified" | "blocked";
   reference: string;
   provider: "self" | "mock-self";
+  reason?: string;
+}
+
+export interface BuyerJobFormInput {
+  id?: string;
+  title: string;
+  coarseArea: string;
+  exactLocation: string;
+  hiddenNotes: string;
+  maxSpendUsd: number;
+  scoutFeeUsd: number;
+  arrivalFeeUsd: number;
+  heartbeatFeeUsd: number;
+  completionFeeUsd: number;
+  expiresInMinutes: number;
+  buyerAddress?: string;
+  selectedRunnerAddress?: string;
+  plannerPreview?: PublicPlannerSummary;
+}
+
+export interface SubmitProofRequest {
+  stageKey: QueueStageKey;
+  proofHash: string;
+  submitterAddress?: string;
+  encryptedUri?: string;
+  txHash?: string;
+}
+
+export interface ReleaseStageRequest {
+  stageKey: QueueStageKey;
+  buyerAddress?: string;
+  txHash?: string;
+}
+
+export interface DelegationUpdateRequest {
+  mode: DelegationPolicyMode;
+  status: DelegationPolicyStatus;
+  requestor?: string | null;
+  result: string;
+}
+
+export interface AcceptJobVerificationPayload {
+  reference?: string;
+  mockVerified?: boolean;
+  proof?: unknown;
+  publicSignals?: string[] | string;
+  attestationId?: number | string;
+  userContextData?: string;
+  signal?: string;
+}
+
+export interface AcceptJobRequest {
+  jobId: string;
+  runnerAddress: string;
+  verificationPayload: AcceptJobVerificationPayload;
+  txHash?: string;
+}
+
+export interface AcceptJobResponse {
+  accepted: true;
+  jobId: string;
+  runnerAddress: string;
+  job: QueueJobView;
+  acceptanceRecord: {
+    verificationReference: string;
+    verificationProvider: string;
+    exactLocationRevealAllowed: boolean;
+    revealToken: string;
+  };
+  exactLocation: string;
 }
 
 export function buildPlannerDecision(input: PlannerInput): PlannerDecision {
@@ -125,11 +233,5 @@ export function toPublicPlannerSummary(decision: PlannerDecision): PublicPlanner
   };
 }
 
-export const queueKeeperEscrowAbi = [] as const;
-
-
-export const deployedAddresses = {
-  escrow: "0xb566298bf1c1afa55f0edc514b2f9d990c82f98c",
-  policy: "0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3",
-  proofRegistry: "0xc049de0d689bdf0186407a03708204c9e4199e49"
-} as const;
+export { deployedAddresses } from "./generated/addresses";
+export { queueKeeperEscrowAbi } from "./generated/queuekeeperEscrowAbi";

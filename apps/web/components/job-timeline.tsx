@@ -1,4 +1,5 @@
 import type { QueueJobView } from "@queuekeeper/shared";
+import { buildExplorerTxUrl } from "../lib/explorer";
 
 export function JobTimeline({ job }: { job: QueueJobView }) {
   return (
@@ -15,7 +16,19 @@ export function JobTimeline({ job }: { job: QueueJobView }) {
           <div key={stage.key} className="timeline-item">
             <strong>{stage.label}</strong> · {stage.amount}
             <div className="muted">Proof hash: {stage.proofHash}</div>
-            <div className="muted">Status: {stage.released ? "released" : "awaiting release"} · {stage.timestamp}</div>
+            <div className="muted">Status: {stage.status} · {stage.timestamp}</div>
+            <div className="muted">Proof submitted: {stage.proofSubmittedAt ?? "not yet submitted"}</div>
+            <div className="muted">Released at: {stage.releasedAt ?? "not yet released"}</div>
+            {stage.proofTxHash ? (
+              <a href={buildExplorerTxUrl(stage.proofTxHash)} rel="noreferrer" target="_blank">
+                Proof tx
+              </a>
+            ) : null}
+            {stage.releaseTxHash ? (
+              <a href={buildExplorerTxUrl(stage.releaseTxHash)} rel="noreferrer" target="_blank" style={{ marginLeft: 12 }}>
+                Release tx
+              </a>
+            ) : null}
           </div>
         ))}
       </div>

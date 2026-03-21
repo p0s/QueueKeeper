@@ -1,8 +1,15 @@
+import { ExplorerPanel } from "../components/explorer-panel";
 import { JobTimeline } from "../components/job-timeline";
 import { PolicyCard } from "../components/policy-card";
-import { sampleJob, sampleJobs } from "../lib/sample-data";
+import { getDefaultBuyerDraft, listDemoJobs } from "../lib/demo-store";
+
+export const dynamic = "force-dynamic";
 
 export default function HomePage() {
+  const jobs = listDemoJobs("public");
+  const snapshotJob = jobs[0];
+  const draft = getDefaultBuyerDraft();
+
   return (
     <main className="container grid">
       <div className="two-col">
@@ -26,9 +33,13 @@ export default function HomePage() {
         </section>
         <section className="card">
           <h2>Live demo snapshot</h2>
-          <div className="muted">Current stage: {sampleJob.currentStage}</div>
+          <div className="muted">
+            {snapshotJob
+              ? `Current stage: ${snapshotJob.currentStage}`
+              : `Draft template ready: ${draft.title}`}
+          </div>
           <ul>
-            {sampleJobs.map((job) => (
+            {jobs.map((job) => (
               <li key={job.id} style={{ marginTop: 10 }}>
                 <strong>{job.title}</strong> — {job.coarseArea} · {job.status}
               </li>
@@ -36,8 +47,9 @@ export default function HomePage() {
           </ul>
         </section>
       </div>
-      <PolicyCard policy={sampleJob.policy} />
-      <JobTimeline job={sampleJob} />
+      {snapshotJob ? <PolicyCard policy={snapshotJob.policy} /> : null}
+      {snapshotJob ? <JobTimeline job={snapshotJob} /> : null}
+      {snapshotJob ? <ExplorerPanel links={snapshotJob.explorerLinks} /> : null}
     </main>
   );
 }

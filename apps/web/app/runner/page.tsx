@@ -1,6 +1,10 @@
-import { sampleJobs } from "../../lib/sample-data";
+import { listDemoJobs } from "../../lib/demo-store";
+
+export const dynamic = "force-dynamic";
 
 export default function RunnerListPage() {
+  const jobs = listDemoJobs("public");
+
   return (
     <main className="container grid">
       <section className="card">
@@ -8,7 +12,7 @@ export default function RunnerListPage() {
         <p className="muted">Mobile-first redacted job list. Exact destination stays hidden until a verified runner accepts.</p>
       </section>
       <div className="grid">
-        {sampleJobs.map((job) => (
+        {jobs.map((job) => (
           <section key={job.id} className="card">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
@@ -20,6 +24,7 @@ export default function RunnerListPage() {
             <div className="muted" style={{ marginTop: 12 }}>Current stage: {job.currentStage}</div>
             <div className="muted">Payouts: {job.stages.map((stage) => `${stage.label} ${stage.amount}`).join(" · ")}</div>
             <div className="muted">Still private: {job.keptPrivate.join(", ")}</div>
+            <div className="muted">Exact destination: {job.exactLocationHint}</div>
             <div style={{ marginTop: 12 }}>
               <a className="button" href={`/runner/${job.id}`}>Open job</a>
             </div>
