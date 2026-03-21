@@ -11,6 +11,7 @@ export function BuyerDemo({ initialJob }: { initialJob: QueueJobView }) {
   const [job, setJob] = useState(initialJob);
   const [plannerState, setPlannerState] = useState<{ loading: boolean; result?: string; error?: string }>({ loading: false });
   const [funded, setFunded] = useState(job.status !== "draft");
+  const [delegationActive, setDelegationActive] = useState(job.policy.mode === "metamask-delegation");
 
   const hiddenSummary = useMemo(() => job.keptPrivate.join(", "), [job.keptPrivate]);
 
@@ -68,8 +69,24 @@ export function BuyerDemo({ initialJob }: { initialJob: QueueJobView }) {
           </div>
         </div>
       </section>
-      <WalletPanel connected={true} funded={funded} />
-      <PolicyCard policy={job.policy} />
+      <WalletPanel connected={true} funded={funded} onDelegationStateChange={(active) => {
+        setDelegationActive(active);
+        setJob((current) => ({
+          ...current,
+          policy: {
+            ...current.policy,
+            mode: active ? "metamask-delegation" : "mock-bounded-policy",
+            notes: active
+              ? [
+                  "MetaMask Advanced Permissions request was triggered in-browser.",
+                  "Policy remains bounded to spend cap, expiry, token, contract, and job binding.",
+                  "Fallback UI remains available if the browser declines or lacks delegation support."
+                ]
+              : current.policy.notes
+          }
+        }));
+      }} />
+      <PolicyCard policy={{ ...job.policy, mode: delegationActive ? "metamask-delegation" : job.policy.mode }} />
       <JobTimeline job={job} />
     </main>
   );
