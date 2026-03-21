@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -35,6 +36,7 @@ import {
   type SettleDisputeRequest,
   type SubmitProofRequest
 } from "@queuekeeper/shared";
+import { getSupabaseStateConfig, hydrateSupabaseState, persistSupabaseState, type SupabaseStateConfig } from "./supabase";
 
 type CoreStageRecord = {
   id: string;
@@ -161,6 +163,8 @@ type AuthContext = {
 declare global {
   // eslint-disable-next-line no-var
   var __queuekeeperCoreSingleton: QueueKeeperCore | undefined;
+  // eslint-disable-next-line no-var
+  var __queuekeeperCoreSingletonPromise: Promise<QueueKeeperCore> | undefined;
 }
 
 function ensureDir(dirPath: string) {
@@ -1436,11 +1440,48 @@ export class QueueKeeperCore {
   }
 }
 
-export function getQueueKeeperCore() {
-  if (!global.__queuekeeperCoreSingleton) {
-    global.__queuekeeperCoreSingleton = new QueueKeeperCore();
+const coreRemoteSync = new WeakMap<QueueKeeperCore, SupabaseStateConfig>();
+
+export async function getQueueKeeperCore() {
+  if (global.__queuekeeperCoreSingleton) {
+    return global.__queuekeeperCoreSingleton;
   }
-  return global.__queuekeeperCoreSingleton;
+  if (global.__queuekeeperCoreSingletonPromise) {
+    return global.__queuekeeperCoreSingletonPromise;
+  }
+
+  global.__queuekeeperCoreSingletonPromise = (async () => {
+    const supabase = getSupabaseStateConfig();
+    if (supabase) {
+      await hydrateSupabaseState(supabase);
+      const core = new QueueKeeperCore({
+        dataDir: supabase.runtimeDir,
+        databasePath: supabase.dbPath,
+        objectDir: supabase.objectDir
+      });
+      coreRemoteSync.set(core, supabase);
+      await persistSupabaseState(supabase);
+      global.__queuekeeperCoreSingleton = core;
+      return core;
+    }
+
+    const localDataDir = process.env.QUEUEKEEPER_DATA_DIR ?? path.join(process.cwd(), ".queuekeeper-data");
+    const core = new QueueKeeperCore({
+      dataDir: localDataDir,
+      databasePath: process.env.QUEUEKEEPER_DATABASE_PATH ?? path.join(localDataDir, "queuekeeper.sqlite"),
+      objectDir: process.env.QUEUEKEEPER_OBJECT_DIR ?? path.join(localDataDir, "objects")
+    });
+    global.__queuekeeperCoreSingleton = core;
+    return core;
+  })();
+
+  return global.__queuekeeperCoreSingletonPromise;
 }
 
 export { handleQueueKeeperApi } from "./router";
+export async function persistQueueKeeperCore(core: QueueKeeperCore) {
+  const sync = coreRemoteSync.get(core);
+  if (sync) {
+    await persistSupabaseState(sync);
+  }
+}

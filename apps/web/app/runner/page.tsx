@@ -2,8 +2,8 @@ import { getQueueKeeperCore } from "@queuekeeper/core";
 
 export const dynamic = "force-dynamic";
 
-export default function RunnerListPage() {
-  const jobs = getQueueKeeperCore().listJobs("public").jobs;
+export default async function RunnerListPage() {
+  const jobs = (await getQueueKeeperCore()).listJobs("public").jobs;
 
   return (
     <main className="container grid">

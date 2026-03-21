@@ -116,7 +116,7 @@ export function RunnerJobDemo({
 
     if (sendLiveTx && onchainJobId) {
       try {
-        const liveResult = await submitLiveProof(onchainJobId, stageKey, proofHash);
+        const liveResult = await submitLiveProof(onchainJobId, stageKey, proofHash, sequence);
         txHash = liveResult.txHash;
         rememberTxHash(jobId, `proof:${stageId}`, txHash);
         setCachedTxHashes((current) => ({ ...current, [`proof:${stageId}`]: txHash as string }));

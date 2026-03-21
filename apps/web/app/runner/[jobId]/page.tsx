@@ -15,7 +15,7 @@ export default async function RunnerJobPage({
   const { revealToken } = await searchParams;
   let job;
   try {
-    const core = getQueueKeeperCore();
+    const core = await getQueueKeeperCore();
     job = core.getJob(jobId, revealToken ? "runner" : "public", {
       revealToken
     });

@@ -6,8 +6,8 @@ import { getDefaultBuyerFormInput } from "../lib/demo-data";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const jobs = getQueueKeeperCore().listJobs("public").jobs;
+export default async function HomePage() {
+  const jobs = (await getQueueKeeperCore()).listJobs("public").jobs;
   const snapshotJob = jobs[0];
   const draft = getDefaultBuyerFormInput();
 
