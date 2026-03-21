@@ -1,36 +1,113 @@
 # QueueKeeper
 
-QueueKeeper is a hackathon MVP for private queue procurement: a buyer can post a queue-holding job, keep the exact destination private until verified acceptance, pay in stages, and inspect a receipts timeline.
+QueueKeeper is a testnet-first product for private queue procurement: a buyer or agent can dispatch a verified human to scout or hold a place in line, keep the exact destination encrypted until verified acceptance, and release payouts only as proof-backed stages advance.
 
 ## What is real now
 
-- `apps/web` builds and runs without any external backend by default.
-- Blank `NEXT_PUBLIC_AGENT_BASE_URL` falls back to in-app Next.js routes:
-  - `/api/planner/decide`
-  - `/api/jobs/accept`
-- The web app includes a minimal no-DB demo backend with create, list, get, accept, proof submission, and payout release routes.
-- Buyer job creation uses a controlled form with validation and a real planner preview based on the current form state.
-- Runner list and runner detail pages read real job state from the demo store.
-- Exact location stays hidden on public views and is only revealed after verified acceptance through the runner reveal token path.
-- Scout, arrival, heartbeat, and completion proof hashes are stored in the demo backend timeline and can be released by the buyer in sequence.
-- The frontend can optionally attempt live Celo Sepolia writes through `viem` plus MetaMask for:
-  - `createJob`
-  - `acceptJob`
-  - `submitProofHash`
-  - stage release functions
-- `packages/shared` exports the real escrow ABI plus the deployed address file used by the frontend.
-- Foundry tests pass for the escrow and delegation policy contracts.
+- A durable core product layer lives in `packages/core`:
+  - SQLite-backed job state and audit trail
+  - encrypted secret payload storage
+  - encrypted proof bundle storage
+  - repeated heartbeat stages
+  - timeout-based auto-release
+  - dispute freeze and settlement
+  - expiry refunds
+  - idempotent draft creation
+- A typed SDK lives in `packages/sdk`.
+- `apps/agent` now exposes a real `/v1` headless API on top of the same core.
+- `apps/web` exposes the same `/api/v1` API locally and uses the same planner/verification boundaries.
+- Buyer and runner surfaces now use real persisted job state, not static sample data.
+- Exact destination remains encrypted at rest and only becomes visible to an accepted runner with a valid reveal token.
+- Proof bundles can include encrypted image media, not just hashes.
+- Planner output changes the actual stage plan:
+  - `scout-only`
+  - `scout-then-hold`
+  - `hold-now`
+  - `abort`
+- The product supports both `DIRECT_DISPATCH` and `VERIFIED_POOL` modes at the schema/API layer.
+- A typed OpenAPI-style surface is exposed from the headless API at `/v1/openapi.json`.
+- Foundry tests pass for the current escrow/policy contracts, and the new durable backend lifecycle tests pass in `packages/core`.
 
-## What is still mocked or intentionally limited
+## Architecture
 
-- The default demo backend is a simple file-backed store under `/tmp`, not a real multi-user database.
-- Venice is mocked unless `VENICE_API_KEY` is provided.
-- Venice also needs available provider credits; if the live call fails, the UI and API now surface a `venice-fallback` reason instead of pretending the live planner worked.
-- Self verification is mocked unless `SELF_MODE=live` and `SELF_API_URL` are provided.
-- In live Self mode, runner accept requires a real `proof`, `publicSignals`, `attestationId`, and `userContextData` payload.
-- MetaMask delegation is only marked active if the wallet permission request succeeds; otherwise the UI shows the bounded fallback policy record.
-- The current MVP supports a single heartbeat stage, not repeated heartbeat releases.
-- `ProofHashRegistry` is deployed but is not wired into the active escrow flow today. The active live write path uses `QueueKeeperEscrow`; the default demo path stores proof hashes in the in-app backend.
+```mermaid
+flowchart LR
+  Buyer["Buyer Web App"] --> API["QueueKeeper API /v1"]
+  Runner["Runner Web App"] --> API
+  Agent["External Agent / SDK"] --> API
+  API --> Planner["Private Planner Boundary (Venice)"]
+  API --> Verify["Verification Boundary (Self)"]
+  API --> DB["SQLite Job + Audit Store"]
+  API --> Blob["Encrypted Proof Object Store"]
+  API --> Chain["Celo Escrow + Policy Contracts"]
+```
+
+## Privacy model
+
+- Public job envelope:
+  - title
+  - coarse area
+  - rough timing window
+  - visible payout schedule
+  - verification requirement
+  - job mode
+- Secret payload:
+  - exact destination
+  - hidden notes
+  - fallback instructions
+  - sensitive buyer preferences
+  - handoff secret
+  - raw proof media
+- Secrets are encrypted at rest.
+- Public APIs and chain state only expose redacted metadata, hashes, references, and stage status.
+- Buyer can review decrypted proof bundles inside the app.
+- Accepted runner receives reveal data only through a verified acceptance token path.
+
+## Headless API
+
+The durable API surface is available in the agent app and mirrored locally in the web app:
+
+- `POST /v1/jobs/drafts`
+- `POST /v1/planner/preview`
+- `POST /v1/jobs/:jobId/post`
+- `POST /v1/jobs/:jobId/dispatch`
+- `GET /v1/jobs`
+- `GET /v1/jobs/:jobId`
+- `POST /v1/jobs/:jobId/accept`
+- `GET /v1/jobs/:jobId/reveal`
+- `POST /v1/jobs/:jobId/proofs`
+- `GET /v1/jobs/:jobId/proofs/:stageId`
+- `POST /v1/jobs/:jobId/stages/:stageId/approve`
+- `POST /v1/jobs/:jobId/stages/:stageId/dispute`
+- `POST /v1/jobs/:jobId/dispute/settle`
+- `GET /v1/jobs/:jobId/timeline`
+
+## Delegation model
+
+- Spend cap, expiry, token allowlist, contract allowlist, and job binding remain explicit.
+- The UI only shows active MetaMask delegation after a real permission request succeeds.
+- Backend state keeps the delegation record visible for buyer review and audit.
+
+## Dispute and timeout model
+
+- Runner submits encrypted proof bundle plus proof hash.
+- Buyer can approve immediately.
+- If the review timeout expires on low-risk stages, the backend auto-releases the stage.
+- Buyer can dispute before release, which freezes the job into a dispute state.
+- A buyer or configured arbiter token can settle a disputed stage to runner or refund.
+- Expired jobs refund unreleased stages automatically.
+
+## What is still simplified
+
+- The durable backend is SQLite plus encrypted filesystem object storage, not a managed hosted database/blob stack yet.
+- The current live chain contract path is still simpler than the full backend lifecycle model:
+  - onchain repeated heartbeat auto-release
+  - onchain dispute resolution
+  - onchain proof-bundle references
+  are not fully mirrored yet.
+- Self is load-bearing for acceptance, but the repo still needs a full QR/deeplink proof-generation frontend for a polished live Self experience.
+- Venice is live-capable and load-bearing when credentials and credits are available; it still falls back transparently when the provider is unavailable.
+- `ProofHashRegistry` remains outside the active happy path.
 
 ## Repo layout
 
@@ -61,7 +138,7 @@ pnpm install
 pnpm dev:web
 ```
 
-### Optional agent service
+### Run the headless API / agent service
 
 ```bash
 pnpm dev:agent
@@ -73,6 +150,7 @@ pnpm dev:agent
 pnpm typecheck
 pnpm lint
 pnpm build
+pnpm test
 cd contracts && forge test -vv
 ```
 
@@ -88,17 +166,18 @@ Important defaults:
 - Leave `NEXT_PUBLIC_AGENT_BASE_URL=` blank to use the built-in demo API routes.
 - Set `NEXT_PUBLIC_QUEUEKEEPER_TOKEN_ADDRESS` if you want the optional live `createJob` path to target a different ERC-20 token.
 - Set `NEXT_PUBLIC_CELO_RPC_URL` if you want live `viem` reads/writes to use a non-default RPC.
+- Set `QUEUEKEEPER_ENCRYPTION_KEY` anywhere you deploy the durable API layer. Vercel should treat this as a required server-side secret.
 - For a deployed app, add server-side Venice/Self envs in Vercel as well: `VENICE_API_KEY`, `VENICE_MODEL`, `SELF_MODE`, `SELF_API_URL`, `SELF_API_KEY`.
 
 No secrets belong in git.
 
 ## Demo backend behavior
 
-- Source of truth for demo state: `apps/web/lib/demo-store.ts`
-- Persistence model: local/dev uses in-memory cache plus a file at `/tmp/queuekeeper-demo-store.json`; production/Vercel falls back to in-memory only so hidden job details are not written to disk
-- Privacy model: public pages only receive coarse details; runner reveal uses the acceptance response token
-- Live planner status: the buyer preview now shows whether the app used `venice-live`, `venice-fallback`, or mock mode
-- Live Self status: the runner accept form now switches to the real Self payload fields automatically when `SELF_MODE=live`
+- Source of truth for durable job state: `packages/core`
+- Headless API host: `apps/agent`
+- Local mirrored API host: `apps/web/app/api/v1`
+- Live planner status: the buyer preview shows `venice-live` vs `venice-fallback`
+- Live Self status: runner acceptance switches to the real proof-package fields automatically when `SELF_MODE=live`
 
 ## Contracts and addresses
 
