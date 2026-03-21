@@ -121,6 +121,21 @@ Do **not** support in MVP:
 
 ## 9. Exact MVP scope
 
+### Implementation defaults
+
+- Prioritize one working buyer flow, one working runner flow, one real onchain payout, and one clean proof plus payout timeline.
+- The user stays in control, spend must stay bounded, sensitive details stay hidden until needed, and runner payouts happen in stages.
+- The UI should always make current stage, spend boundary, proof timeline, payout timeline, and the privacy boundary obvious.
+- The runner flow must stay mobile-friendly and action-first.
+
+### Integration defaults
+
+- Venice is load-bearing for private planner reasoning. Hidden destination, hidden budget, and fallback rules should stay inside the planner boundary.
+- MetaMask delegation should be real if shown, with at least spend cap, expiry, contract allowlist, and token allowlist.
+- Self verification should be load-bearing: only verified runners may accept jobs, and only minimal verification data should be stored.
+- Celo stablecoin payouts are the default money rail for the core demo.
+- If a protocol integration is blocked, replace it with the smallest honest implementation that preserves the product loop.
+
 ### Buyer side
 - connect wallet
 - create a job:
@@ -149,7 +164,7 @@ Do **not** support in MVP:
 - submit:
  - scout proof
  - arrival proof
- - single heartbeat proof in the current MVP
+ - repeated heartbeat proofs
  - completion proof
 - receive payouts
 
@@ -158,6 +173,7 @@ Do **not** support in MVP:
 - pick whether to:
  - scout only
  - scout then hold
+ - hold now
  - abort
 - choose acceptable runner
 - create job-specific spend action(s)
@@ -193,8 +209,7 @@ Small payment to verify the line exists and provide first ETA / photo proof.
 Runner reaches the exact location and proves presence.
 
 ### Stage 3 — heartbeat
-The current MVP ships a single heartbeat payout after valid presence proof.
-Repeated heartbeat releases are a next-step extension, not an active claim.
+QueueKeeper supports repeated heartbeat payouts after valid progress proofs while the runner is actively holding the place.
 
 ### Stage 4 — handoff
 Large final completion payment after user confirms takeover or after completion condition passes.
@@ -317,10 +332,14 @@ Responsibilities:
 Key methods:
 - `createJob(JobConfig config)`
 - `acceptJob(uint256 jobId, bytes selfProofRef)`
-- `submitProofHash(uint256 jobId, JobStage stage, bytes32 proofHash, string proofURI?)`
-- `releaseStage(uint256 jobId, JobStage stage)`
-- `completeJob(uint256 jobId, bytes32 handoffHash)`
-- `cancelJob(uint256 jobId)`
+- `submitProofHash(uint256 jobId, uint8 proofStage, bytes32 proofHash)`
+- `releaseScout(uint256 jobId)`
+- `releaseArrival(uint256 jobId)`
+- `releaseHeartbeat(uint256 jobId)`
+- `releaseCompletion(uint256 jobId)`
+- `autoReleaseStage(uint256 jobId, uint8 proofStage)`
+- `disputeStage(uint256 jobId, uint8 proofStage)`
+- `settleDispute(uint256 jobId, bool releaseToRunner)`
 - `refundJob(uint256 jobId)`
 
 ### 15.2 QueueKeeperDelegationPolicy.sol
@@ -332,7 +351,7 @@ Responsibilities:
 Possible caveats:
 - max total spend
 - max scout spend
-- single heartbeat in the current MVP
+- repeated heartbeat stages
 - expiry timestamp
 - stablecoin allowlist
 - jobId binding
@@ -458,7 +477,7 @@ Must show live:
 4. runner accepted
 5. scout or arrival proof submitted
 6. stage payment released
-7. single heartbeat / completion payout released
+7. heartbeat or completion payout released
 8. receipt timeline visible
 
 Nice to show:
