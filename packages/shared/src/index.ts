@@ -1,10 +1,33 @@
 export type QueueStageKey = "scout" | "arrival" | "heartbeat" | "completion";
-export type QueueJobStatus = "draft" | "posted" | "accepted" | "holding" | "completed" | "expired";
-export type PlannerAction = "scout-only" | "scout-then-hold" | "abort";
+export type QueueJobStatus =
+  | "draft"
+  | "funded"
+  | "posted"
+  | "accepted"
+  | "scouting"
+  | "holding"
+  | "disputed"
+  | "completed"
+  | "expired"
+  | "refunded"
+  | "cancelled";
+export type PlannerAction = "scout-only" | "scout-then-hold" | "hold-now" | "abort";
 export type QueueViewerRole = "public" | "buyer" | "runner";
 export type DelegationPolicyMode = "mock-bounded-policy" | "metamask-delegation";
 export type DelegationPolicyStatus = "not-requested" | "requested" | "granted" | "rejected" | "mock-fallback";
-export type QueueStageStatus = "pending-proof" | "awaiting-release" | "released";
+export type QueueStageStatus =
+  | "pending-proof"
+  | "submitted"
+  | "awaiting-release"
+  | "approved"
+  | "auto-released"
+  | "released"
+  | "disputed"
+  | "settled"
+  | "refunded";
+export type QueueJobMode = "DIRECT_DISPATCH" | "VERIFIED_POOL";
+export type QueueVerificationRequirement = "SELF_VERIFIED";
+export type QueueDisputeStatus = "none" | "open" | "settled";
 
 export const queueStageOrder: QueueStageKey[] = ["scout", "arrival", "heartbeat", "completion"];
 
@@ -16,15 +39,23 @@ export const queueStageLabels: Record<QueueStageKey, string> = {
 };
 
 export interface QueueStageView {
+  stageId?: string;
   key: QueueStageKey;
   label: string;
   amount: string;
   released: boolean;
   status: QueueStageStatus;
+  sequence?: number;
   proofHash: string;
   proofSubmittedAt: string | null;
   releasedAt: string | null;
   timestamp: string;
+  reviewWindowEndsAt?: string | null;
+  autoReleaseAt?: string | null;
+  disputedAt?: string | null;
+  disputeReason?: string | null;
+  proofBundleAvailable?: boolean;
+  imageCount?: number;
   proofTxHash?: string | null;
   releaseTxHash?: string | null;
 }
@@ -58,8 +89,10 @@ export interface ExplorerLinkView {
 
 export interface QueueJobView {
   id: string;
+  mode?: QueueJobMode;
   title: string;
   coarseArea: string;
+  timingWindow?: string;
   exactLocationHint?: string;
   exactLocationVisibleToViewer?: string | null;
   status: QueueJobStatus;
@@ -79,6 +112,14 @@ export interface QueueJobView {
   acceptedRunnerAddress?: string;
   onchainJobId?: string | null;
   plannerPreview?: PublicPlannerSummary;
+  plannerProvider?: string;
+  disputeStatus?: QueueDisputeStatus;
+  buyerSessionToken?: string;
+  runnerActionToken?: string;
+  revealToken?: string;
+  heartbeatIntervalSeconds?: number;
+  heartbeatCount?: number;
+  reviewWindowsSummary?: string;
   explorerLinks: ExplorerLinkView[];
 }
 
@@ -92,10 +133,15 @@ export interface RunnerCandidate {
 export interface PlannerInput {
   urgency: "low" | "medium" | "high";
   scoutFee: number;
+  arrivalFee?: number;
+  heartbeatFee?: number;
   completionBonus: number;
   maxBudget: number;
   hiddenExactLocation: string;
   hiddenNotes?: string;
+  privateFallbackInstructions?: string;
+  waitingToleranceMinutes?: number;
+  mode?: QueueJobMode;
   candidates: RunnerCandidate[];
 }
 
@@ -120,16 +166,23 @@ export interface SelfVerificationResult {
 
 export interface BuyerJobFormInput {
   id?: string;
+  mode?: QueueJobMode;
   title: string;
   coarseArea: string;
+  timingWindow?: string;
   exactLocation: string;
   hiddenNotes: string;
+  privateFallbackInstructions?: string;
+  sensitiveBuyerPreferences?: string;
+  handoffSecret?: string;
   maxSpendUsd: number;
   scoutFeeUsd: number;
   arrivalFeeUsd: number;
   heartbeatFeeUsd: number;
   completionFeeUsd: number;
   expiresInMinutes: number;
+  heartbeatCount?: number;
+  heartbeatIntervalSeconds?: number;
   buyerAddress?: string;
   selectedRunnerAddress?: string;
   plannerPreview?: PublicPlannerSummary;
@@ -137,7 +190,12 @@ export interface BuyerJobFormInput {
 
 export interface SubmitProofRequest {
   stageKey: QueueStageKey;
+  stageId?: string;
   proofHash: string;
+  note?: string;
+  sequence?: number;
+  buyerVisibleSummary?: string;
+  media?: ProofMediaInput[];
   submitterAddress?: string;
   encryptedUri?: string;
   txHash?: string;
@@ -145,6 +203,7 @@ export interface SubmitProofRequest {
 
 export interface ReleaseStageRequest {
   stageKey: QueueStageKey;
+  stageId?: string;
   buyerAddress?: string;
   txHash?: string;
 }
@@ -187,6 +246,123 @@ export interface AcceptJobResponse {
   exactLocation: string;
 }
 
+export interface ProofMediaInput {
+  filename: string;
+  mimeType: string;
+  base64: string;
+}
+
+export interface QueueSecretPayload {
+  exactLocation: string;
+  hiddenNotes: string;
+  privateFallbackInstructions?: string;
+  sensitiveBuyerPreferences?: string;
+  handoffSecret?: string;
+}
+
+export interface QueueStageRuleInput {
+  key: QueueStageKey;
+  amountCusd: number;
+  reviewWindowSeconds: number;
+  autoReleaseSeconds: number;
+  disputeWindowSeconds: number;
+  count?: number;
+}
+
+export interface CreateJobDraftRequest extends BuyerJobFormInput {
+  verificationRequirement?: QueueVerificationRequirement;
+}
+
+export interface CreateJobDraftResponse {
+  job: QueueJobView;
+  buyerToken: string;
+}
+
+export interface PostJobRequest {
+  jobId: string;
+  buyerToken: string;
+  delegation?: DelegationUpdateRequest;
+  onchainJobId?: string | null;
+  txHash?: string | null;
+}
+
+export interface DispatchJobRequest {
+  buyerToken: string;
+  runnerAddress: string;
+}
+
+export interface RevealDataResponse {
+  jobId: string;
+  exactLocation: string;
+  hiddenNotes: string;
+  privateFallbackInstructions?: string;
+  sensitiveBuyerPreferences?: string;
+  handoffSecret?: string;
+}
+
+export interface QueueTimelineEventView {
+  id: string;
+  jobId: string;
+  type: string;
+  actorRole: "system" | "buyer" | "runner" | "planner" | "arbiter";
+  actorAddress?: string | null;
+  summary: string;
+  createdAt: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface QueueProofBundleView {
+  jobId: string;
+  stageId: string;
+  stageKey: QueueStageKey;
+  sequence: number;
+  note?: string;
+  proofHash: string;
+  media: Array<{
+    filename: string;
+    mimeType: string;
+    dataUrl: string;
+  }>;
+  createdAt: string;
+}
+
+export interface ApproveStageRequest {
+  buyerToken: string;
+  stageId: string;
+  txHash?: string;
+}
+
+export interface DisputeStageRequest {
+  buyerToken: string;
+  stageId: string;
+  reason: string;
+}
+
+export interface SettleDisputeRequest {
+  buyerToken?: string;
+  arbiterToken?: string;
+  stageId: string;
+  resolution: "release-to-runner" | "refund-buyer";
+  note?: string;
+}
+
+export interface QueueJobTimelineResponse {
+  job: QueueJobView;
+  events: QueueTimelineEventView[];
+}
+
+export interface QueueJobsListResponse {
+  jobs: QueueJobView[];
+}
+
+export interface ApiError {
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}
+
 export function buildPlannerDecision(input: PlannerInput): PlannerDecision {
   const sorted = [...input.candidates].sort((a, b) => {
     const verifiedDelta = Number(b.verifiedHuman) - Number(a.verifiedHuman);
@@ -203,10 +379,20 @@ export function buildPlannerDecision(input: PlannerInput): PlannerDecision {
     };
   }
 
-  if (input.maxBudget < input.scoutFee + input.completionBonus) {
+  const requiredBudget = input.scoutFee + (input.arrivalFee ?? 0) + (input.heartbeatFee ?? 0) + input.completionBonus;
+
+  if (input.maxBudget < requiredBudget) {
     return {
       action: "abort",
       reason: "Buyer budget does not safely cover the requested staged payout plan."
+    };
+  }
+
+  if (input.urgency === "high" && (input.waitingToleranceMinutes ?? 15) <= 10) {
+    return {
+      action: "hold-now",
+      reason: "Urgency is high and the buyer tolerance is low enough that an immediate hold is safer than waiting for scout confirmation.",
+      chosenRunner
     };
   }
 

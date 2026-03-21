@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
+import { handleQueueKeeperApi } from "@queuekeeper/core";
 import { createPublicClient, http } from "viem";
 import {
   buildPlannerDecision,
@@ -249,8 +250,7 @@ function json<T>(status: number, body: T) {
   });
 }
 
-async function handlePlanner(request: Request) {
-  const payload = (await request.json()) as HiddenPlannerRequest;
+async function previewPlanner(payload: HiddenPlannerRequest) {
   const planner = getPlannerProvider();
   let decision: PlannerDecision;
   let provider = veniceMode;
@@ -264,14 +264,19 @@ async function handlePlanner(request: Request) {
     reason = error instanceof Error ? error.message : String(error);
   }
 
-  return json(200, {
+  return {
     summary: toPublicPlannerSummary(decision),
     meta: {
       provider,
       reason,
       hiddenFieldsPersistedServerSideOnly: ["hiddenExactLocation", "hiddenNotes", "maxBudget"]
     }
-  });
+  };
+}
+
+async function handlePlanner(request: Request) {
+  const payload = (await request.json()) as HiddenPlannerRequest;
+  return json(200, await previewPlanner(payload));
 }
 
 async function handleAccept(request: Request) {
@@ -318,6 +323,11 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/health") {
       const chainId = await client.getChainId();
       response = json(200, { ok: true, chainId, plannerProvider: veniceMode, selfMode });
+    } else if (url.pathname.startsWith("/v1/")) {
+      response = await handleQueueKeeperApi(request, {
+        plan: previewPlanner,
+        verify: async (payload) => getSelfVerifier().verify(payload)
+      });
     } else if (req.method === "POST" && url.pathname === "/planner/decide") {
       response = await handlePlanner(request);
     } else if (req.method === "POST" && url.pathname === "/jobs/accept") {

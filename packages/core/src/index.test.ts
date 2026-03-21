@@ -1,0 +1,192 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { QueueKeeperCore } from "./index.js";
+
+function createTestCore(name: string) {
+  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), `queuekeeper-core-${name}-`));
+  return new QueueKeeperCore({
+    dataDir: baseDir,
+    databasePath: path.join(baseDir, "queuekeeper.sqlite"),
+    objectDir: path.join(baseDir, "objects"),
+    encryptionKey: Buffer.alloc(32, 7),
+    arbiterToken: "arbiter-token"
+  });
+}
+
+function createDraft(core: QueueKeeperCore, overrides: Partial<Parameters<QueueKeeperCore["createJobDraft"]>[0]> = {}) {
+  return core.createJobDraft({
+    mode: "DIRECT_DISPATCH",
+    title: "Test queue job",
+    coarseArea: "Moscone South",
+    timingWindow: "Today",
+    exactLocation: "South entrance line",
+    hiddenNotes: "Hold only if short",
+    privateFallbackInstructions: "Abort if line wraps",
+    maxSpendUsd: 30,
+    scoutFeeUsd: 4,
+    arrivalFeeUsd: 6,
+    heartbeatFeeUsd: 5,
+    completionFeeUsd: 15,
+    expiresInMinutes: 60,
+    heartbeatCount: 2,
+    heartbeatIntervalSeconds: 120,
+    buyerAddress: "0xb0b0000000000000000000000000000000000001",
+    selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
+    plannerAction: "scout-then-hold",
+    plannerReason: "test plan",
+    plannerProvider: "test",
+    ...overrides
+  });
+}
+
+test("happy path accepts, reveals, and approves stages", () => {
+  const core = createTestCore("happy");
+  const draft = createDraft(core);
+  const posted = core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  assert.equal(posted.job.status, "posted");
+
+  const accepted = core.acceptJob(draft.job.id, "0xa11ce0000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "self-ref"
+  });
+  assert.equal(accepted.job.acceptedRunnerAddress, "0xa11ce0000000000000000000000000000000001");
+  assert.equal(core.getRevealData(draft.job.id, accepted.acceptanceRecord.revealToken).exactLocation, "South entrance line");
+
+  const scoutStage = accepted.job.stages.find((stage) => stage.key === "scout");
+  assert.ok(scoutStage?.stageId);
+
+  const proofed = core.submitProof(draft.job.id, accepted.acceptanceRecord.revealToken, {
+    stageId: scoutStage.stageId,
+    stageKey: "scout",
+    proofHash: "0xscoutproof",
+    note: "Scout image sent"
+  });
+  assert.equal(proofed.job.stages.find((stage) => stage.stageId === scoutStage.stageId)?.status, "submitted");
+
+  const approved = core.approveStage(draft.job.id, {
+    buyerToken: draft.buyerToken,
+    stageId: scoutStage.stageId
+  });
+  assert.equal(approved.job.stages.find((stage) => stage.stageId === scoutStage.stageId)?.status, "approved");
+});
+
+test("creates repeated heartbeat stages", () => {
+  const core = createTestCore("heartbeats");
+  const draft = createDraft(core, { heartbeatCount: 3, plannerAction: "hold-now", scoutFeeUsd: 0 });
+  const job = core.getTimeline(draft.job.id, "buyer", { buyerToken: draft.buyerToken }).job;
+  const heartbeats = job.stages.filter((stage) => stage.key === "heartbeat");
+  assert.equal(heartbeats.length, 3);
+  assert.deepEqual(heartbeats.map((stage) => stage.sequence), [1, 2, 3]);
+});
+
+test("auto releases a submitted stage after timeout", () => {
+  const core = createTestCore("autorelease");
+  const draft = createDraft(core);
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  const accepted = core.acceptJob(draft.job.id, "0xa11ce0000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "self-ref"
+  });
+  const scoutStage = accepted.job.stages.find((stage) => stage.key === "scout");
+  assert.ok(scoutStage?.stageId);
+
+  core.submitProof(draft.job.id, accepted.acceptanceRecord.revealToken, {
+    stageId: scoutStage.stageId,
+    stageKey: "scout",
+    proofHash: "0xauto"
+  });
+  core.db.prepare("UPDATE stages SET auto_release_at = ?2 WHERE id = ?1").run(scoutStage.stageId, new Date(Date.now() - 1_000).toISOString());
+  const timeline = core.getTimeline(draft.job.id, "buyer", { buyerToken: draft.buyerToken });
+  assert.equal(timeline.job.stages.find((stage) => stage.stageId === scoutStage.stageId)?.status, "auto-released");
+});
+
+test("dispute freezes the job and requires settlement", () => {
+  const core = createTestCore("dispute");
+  const draft = createDraft(core);
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  const accepted = core.acceptJob(draft.job.id, "0xa11ce0000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "self-ref"
+  });
+  const scoutStage = accepted.job.stages.find((stage) => stage.key === "scout");
+  assert.ok(scoutStage?.stageId);
+  core.submitProof(draft.job.id, accepted.acceptanceRecord.revealToken, {
+    stageId: scoutStage.stageId,
+    stageKey: "scout",
+    proofHash: "0xdispute"
+  });
+
+  const disputed = core.disputeStage(draft.job.id, {
+    buyerToken: draft.buyerToken,
+    stageId: scoutStage.stageId,
+    reason: "Bad proof"
+  });
+  assert.equal(disputed.job.disputeStatus, "open");
+  assert.equal(disputed.job.status, "disputed");
+
+  const settled = core.settleDispute(draft.job.id, {
+    arbiterToken: "arbiter-token",
+    stageId: scoutStage.stageId,
+    resolution: "refund-buyer"
+  });
+  assert.equal(settled.job.disputeStatus, "settled");
+  assert.equal(settled.job.stages.find((stage) => stage.stageId === scoutStage.stageId)?.status, "refunded");
+});
+
+test("expired job refunds unreleased stages", () => {
+  const core = createTestCore("expiry");
+  const draft = createDraft(core);
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  core.db.prepare("UPDATE jobs SET expires_at = ?2 WHERE id = ?1").run(draft.job.id, new Date(Date.now() - 1_000).toISOString());
+  const timeline = core.getTimeline(draft.job.id, "buyer", { buyerToken: draft.buyerToken });
+  assert.equal(timeline.job.status, "refunded");
+  assert.ok(timeline.job.stages.every((stage) => stage.status === "refunded" || stage.status === "pending-proof"));
+});
+
+test("public view never reveals exact location before acceptance", () => {
+  const core = createTestCore("privacy");
+  const draft = createDraft(core);
+  const publicJob = core.getJob(draft.job.id, "public");
+  assert.equal(publicJob.exactLocationVisibleToViewer, null);
+  assert.match(publicJob.exactLocationHint ?? "", /encrypted|revealed/i);
+  assert.throws(() => core.getRevealData(draft.job.id, "bad-token"));
+});
+
+test("idempotent draft creation returns the same job", () => {
+  const core = createTestCore("idempotent");
+  const first = createDraft(core, { title: "Idempotent" });
+  const second = core.createJobDraft({
+    mode: "DIRECT_DISPATCH",
+    title: "Idempotent",
+    coarseArea: "Moscone South",
+    exactLocation: "South entrance line",
+    hiddenNotes: "Hold",
+    maxSpendUsd: 30,
+    scoutFeeUsd: 4,
+    arrivalFeeUsd: 6,
+    heartbeatFeeUsd: 5,
+    completionFeeUsd: 15,
+    expiresInMinutes: 60
+  }, "same-key");
+  const third = core.createJobDraft({
+    mode: "DIRECT_DISPATCH",
+    title: "Idempotent",
+    coarseArea: "Moscone South",
+    exactLocation: "South entrance line",
+    hiddenNotes: "Hold",
+    maxSpendUsd: 30,
+    scoutFeeUsd: 4,
+    arrivalFeeUsd: 6,
+    heartbeatFeeUsd: 5,
+    completionFeeUsd: 15,
+    expiresInMinutes: 60
+  }, "same-key");
+  assert.notEqual(first.job.id, second.job.id);
+  assert.equal(second.job.id, third.job.id);
+});

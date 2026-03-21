@@ -10,6 +10,8 @@
     "lint": "tsc -p tsconfig.typecheck.json --noEmit"
   },
   "dependencies": {
+    "@queuekeeper/core": "workspace:*",
+    "@queuekeeper/sdk": "workspace:*",
     "@metamask/smart-accounts-kit": "0.4.0-beta.1",
     "@queuekeeper/shared": "workspace:*",
     "next": "15.5.14",

@@ -18,3 +18,5 @@ synthesis-registration.json
 packages/shared/dist
 
 .secrets
+.queuekeeper-data
+.queuekeeper-object-store

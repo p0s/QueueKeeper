@@ -12,6 +12,7 @@
     "dev:agent": "pnpm --filter @queuekeeper/agent dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv"
   }
 }
