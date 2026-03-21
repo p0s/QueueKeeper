@@ -1,25 +1,45 @@
 # QueueKeeper
 
-QueueKeeper is a private procurement agent for hiring a verified human to scout or hold a place in line with staged escrow, bounded spend, and redacted receipts.
+QueueKeeper is a hackathon MVP for private queue procurement: a buyer can post a queue-holding job, keep the exact destination private until verified acceptance, pay in stages, and inspect a receipts timeline.
 
-## What the demo shows
+## What is real now
 
-- buyer creates a queue job with staged payouts
-- bounded permission policy with spend cap / expiry / token / contract restrictions
-- mobile-friendly runner job list and active job route
-- proof hash timeline for scout / arrival / heartbeat / completion
-- planner service with Venice-style adapter boundary
-- Self verification boundary with explicit dev-only mock adapter
-- minimal staged escrow contract + passing Foundry tests
+- `apps/web` builds and runs without any external backend by default.
+- Blank `NEXT_PUBLIC_AGENT_BASE_URL` falls back to in-app Next.js routes:
+  - `/api/planner/decide`
+  - `/api/jobs/accept`
+- The web app includes a minimal no-DB demo backend with create, list, get, accept, proof submission, and payout release routes.
+- Buyer job creation uses a controlled form with validation and a real planner preview based on the current form state.
+- Runner list and runner detail pages read real job state from the demo store.
+- Exact location stays hidden on public views and is only revealed after verified acceptance through the runner reveal token path.
+- Scout, arrival, heartbeat, and completion proof hashes are stored in the demo backend timeline and can be released by the buyer in sequence.
+- The frontend can optionally attempt live Celo Sepolia writes through `viem` plus MetaMask for:
+  - `createJob`
+  - `acceptJob`
+  - `submitProofHash`
+  - stage release functions
+- `packages/shared` exports the real escrow ABI plus the deployed address file used by the frontend.
+- Foundry tests pass for the escrow and delegation policy contracts.
+
+## What is still mocked or intentionally limited
+
+- The default demo backend is a simple file-backed store under `/tmp`, not a real multi-user database.
+- Venice is mocked unless `VENICE_API_KEY` is provided.
+- Venice also needs available provider credits; if the live call fails, the UI and API now surface a `venice-fallback` reason instead of pretending the live planner worked.
+- Self verification is mocked unless `SELF_MODE=live` and `SELF_API_URL` are provided.
+- In live Self mode, runner accept requires a real `proof`, `publicSignals`, `attestationId`, and `userContextData` payload.
+- MetaMask delegation is only marked active if the wallet permission request succeeds; otherwise the UI shows the bounded fallback policy record.
+- The current MVP supports a single heartbeat stage, not repeated heartbeat releases.
+- `ProofHashRegistry` is deployed but is not wired into the active escrow flow today. The active live write path uses `QueueKeeperEscrow`; the default demo path stores proof hashes in the in-app backend.
 
 ## Repo layout
 
-- `apps/web` — Next.js buyer + runner UI
+- `apps/web` — Next.js buyer + runner UI plus in-app demo backend
 - `apps/agent` — Node/TypeScript planner + verification service
 - `contracts` — Foundry contracts + tests
-- `packages/shared` — shared types and adapter-facing contracts
-- `docs` — submission and asset planning docs
-- `WEBSITE` — GitHub Pages landing page
+- `packages/shared` — shared types, ABI, and deployed address exports
+- `docs` — demo script, submission notes, and asset placeholders
+- `WEBSITE` — landing page scaffold
 
 ## Quick start
 
@@ -35,13 +55,13 @@ QueueKeeper is a private procurement agent for hiring a verified human to scout 
 pnpm install
 ```
 
-### Run web
+### Run the web app
 
 ```bash
 pnpm dev:web
 ```
 
-### Run agent service
+### Optional agent service
 
 ```bash
 pnpm dev:agent
@@ -63,87 +83,48 @@ Copy and fill:
 - `apps/web/.env.example`
 - `apps/agent/.env.example`
 
+Important defaults:
+
+- Leave `NEXT_PUBLIC_AGENT_BASE_URL=` blank to use the built-in demo API routes.
+- Set `NEXT_PUBLIC_QUEUEKEEPER_TOKEN_ADDRESS` if you want the optional live `createJob` path to target a different ERC-20 token.
+- Set `NEXT_PUBLIC_CELO_RPC_URL` if you want live `viem` reads/writes to use a non-default RPC.
+- For a deployed app, add server-side Venice/Self envs in Vercel as well: `VENICE_API_KEY`, `VENICE_MODEL`, `SELF_MODE`, `SELF_API_URL`, `SELF_API_KEY`.
+
 No secrets belong in git.
 
-## Screens to capture
+## Demo backend behavior
 
-See `docs/SCREENSHOT_CHECKLIST.md`.
+- Source of truth for demo state: `apps/web/lib/demo-store.ts`
+- Persistence model: local/dev uses in-memory cache plus a file at `/tmp/queuekeeper-demo-store.json`; production/Vercel falls back to in-memory only so hidden job details are not written to disk
+- Privacy model: public pages only receive coarse details; runner reveal uses the acceptance response token
+- Live planner status: the buyer preview now shows whether the app used `venice-live`, `venice-fallback`, or mock mode
+- Live Self status: the runner accept form now switches to the real Self payload fields automatically when `SELF_MODE=live`
 
-## Cover image direction
+## Contracts and addresses
 
-See `docs/COVER_IMAGE_CONCEPT.md`.
+Source of truth for deployed addresses:
 
-## Submission copy
+- `packages/shared/src/generated/addresses.ts`
 
-See `docs/SUBMISSION_COPY.md`.
-
-## Integration notes
-
-### MetaMask delegation
-The current UI ships a **compatible bounded permission flow** with the same load-bearing fields required for MetaMask delegation:
-- spend cap
-- expiry
-- approved token
-- approved contract
-- per-job binding
-
-Code comments mark the exact buyer-flow hook where live MetaMask delegation should replace the fallback policy record.
-
-### Venice planner
-The planner service accepts hidden buyer fields server-side and returns only a public-safe summary. The provider interface is intentionally swappable so a live Venice client can replace the mock planner without changing web routes.
-
-### Self verification
-Runner acceptance goes through a verification adapter. In dev mode the repo uses a mock adapter only behind `SELF_MODE=mock`. The interface is ready for a live Self-backed verifier.
-
-## Remote
-
-```bash
-git remote add origin https://github.com/p0s/QueueKeeper/
-```
-
-## Celo Sepolia deployment
-
-See `docs/CELO_SEPOLIA_DEPLOY.md` for the generated test wallet address, deployment script, and address export flow.
-
-## Vercel app deployment
-
-Deploy `apps/web` to Vercel as the public app frontend.
-
-Recommended Vercel project settings:
-- Root Directory: `apps/web`
-- Install Command: `cd ../.. && pnpm install --frozen-lockfile`
-- Build Command: `cd ../.. && pnpm --filter @queuekeeper/web build`
-
-Required env vars for the Vercel project:
-- `NEXT_PUBLIC_AGENT_BASE_URL` *(optional; leave blank to use in-app demo API routes)*
-- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
-- `NEXT_PUBLIC_CELO_CHAIN_ID=11142220`
-- `NEXT_PUBLIC_QUEUEKEEPER_ESCROW_ADDRESS=0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
-- `NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://celo-sepolia.blockscout.com`
-
-If `NEXT_PUBLIC_AGENT_BASE_URL` is blank, the hosted app uses built-in Next.js API routes for planner and runner-accept demo behavior.
-
-## Deployed Celo Sepolia contracts
+Current exported addresses:
 
 - Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
 - Delegation policy: `0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3`
 - Proof registry: `0xc049de0d689bdf0186407a03708204c9e4199e49`
-- Explorer base: `https://celo-sepolia.blockscout.com`
 
+## Historical Celo Sepolia example
 
+These historical links are useful for judges, but the local MVP does not depend on them:
 
-## Live app
+- Mock token: `0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6`
+- Job creation tx: [0x921f3f8f461679644ce48aad265ba247a8ff313b849b36b409054eee0d5ac14a](https://celo-sepolia.blockscout.com/tx/0x921f3f8f461679644ce48aad265ba247a8ff313b849b36b409054eee0d5ac14a)
+- Runner accept tx: [0x63937ce0fe97ddb716e46f3bf40f60fe5e236406f345d7fc758e4b6b26bc03d7](https://celo-sepolia.blockscout.com/tx/0x63937ce0fe97ddb716e46f3bf40f60fe5e236406f345d7fc758e4b6b26bc03d7)
+- Proof submission tx: [0x6dc5de8167987e646f141b0f4b972a247df219c8bcead641d4bad9b02ac657b7](https://celo-sepolia.blockscout.com/tx/0x6dc5de8167987e646f141b0f4b972a247df219c8bcead641d4bad9b02ac657b7)
+- Scout release tx: [0x391524f5123a3e77ec26f732a9239e3abaca6553704f03662f700edb72a01980](https://celo-sepolia.blockscout.com/tx/0x391524f5123a3e77ec26f732a9239e3abaca6553704f03662f700edb72a01980)
 
-- App: `https://web-nu-two-34.vercel.app`
-- Contracts: see the deployed Celo Sepolia addresses below.
+## Related docs
 
-## Live demo payout
-
-A real staged demo payout was executed on Celo Sepolia using the deployed QueueKeeper escrow.
-
-- Mock stable token: `0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6`
-- Job creation tx: `0x921f3f8f461679644ce48aad265ba247a8ff313b849b36b409054eee0d5ac14a`
-- Runner accept tx: `0x63937ce0fe97ddb716e46f3bf40f60fe5e236406f345d7fc758e4b6b26bc03d7`
-- Proof submission tx: `0x6dc5de8167987e646f141b0f4b972a247df219c8bcead641d4bad9b02ac657b7`
-- Scout release tx: `0x391524f5123a3e77ec26f732a9239e3abaca6553704f03662f700edb72a01980`
-- Explorer: https://celo-sepolia.blockscout.com/tx/0x391524f5123a3e77ec26f732a9239e3abaca6553704f03662f700edb72a01980
+- `docs/DEMO-SCRIPT.md`
+- `docs/DELIVERY_GAP.md`
+- `docs/SUBMISSION_COPY.md`
+- `docs/submission-metadata.template.json`

@@ -1,7 +1,7 @@
 # Submission copy draft
 
 ## One liner
-QueueKeeper lets a user privately hire a verified human to scout and hold a place in line, while their agent pays only as onchain proofs arrive.
+QueueKeeper lets a buyer privately hire a verified runner to scout or hold a place in line, while staged escrow only releases money as proof hashes and buyer approvals arrive.
 
 ## Problem
 Real-world errands like queues are awkward for agents: users want help, but they do not want to reveal exact destinations too early, prepay strangers in full, or trust a generic labor platform to enforce staged commitments fairly.
@@ -10,26 +10,33 @@ Real-world errands like queues are awkward for agents: users want help, but they
 QueueKeeper combines private planning, bounded spend permissions, verified runner gating, staged escrow, and proof-hash receipts. Buyers keep control, runners get paid as they make verifiable progress, and judges can inspect what happened without exposing raw private details.
 
 ## What is live in the MVP
-- buyer job creation flow
-- mobile-friendly runner flow
-- staged escrow contract + tests
-- bounded permission policy UI compatible with MetaMask delegation hooks
-- planner service with swappable Venice-style adapter
-- Self verification boundary with explicit mock dev adapter
+- self-contained web demo backend with no external DB
+- buyer job creation and funding flow backed by real stored state
+- mobile-friendly runner list and detail flow backed by real stored state
+- verified acceptance gate that hides exact location until accept succeeds
+- scout / arrival / heartbeat / completion proof submission and buyer releases
+- staged escrow contract + passing Foundry tests
+- optional wallet-backed live escrow writes through `viem`
+- bounded permission policy UI with persisted MetaMask permission results
 
+## What is still a fallback or mock
+- Venice planning is mocked unless `VENICE_API_KEY` is set
+- Self verification is mocked unless `SELF_MODE=live` and `SELF_API_URL` are set
+- MetaMask delegation falls back to a bounded policy record when the permission request fails or is unavailable
+- the current MVP supports one heartbeat stage, not repeated heartbeat payouts
+- `ProofHashRegistry` is deployed but not in the active flow yet
 
 ## Deployed contracts
 - Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
 - Delegation policy: `0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3`
 - Proof registry: `0xc049de0d689bdf0186407a03708204c9e4199e49`
 
-
-## Live links
-- App: `https://web-nu-two-34.vercel.app`
+## Submission links
 - Repo: `https://github.com/p0s/QueueKeeper`
+- Demo URL: fill in the final deployed URL before submission
+- Video URL: fill in after recording
 
-
-## Live onchain payout proof
+## Historical onchain example
 - Mock token: `0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6`
 - Job creation: `https://celo-sepolia.blockscout.com/tx/0x921f3f8f461679644ce48aad265ba247a8ff313b849b36b409054eee0d5ac14a`
 - Accept: `https://celo-sepolia.blockscout.com/tx/0x63937ce0fe97ddb716e46f3bf40f60fe5e236406f345d7fc758e4b6b26bc03d7`

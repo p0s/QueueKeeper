@@ -55,3 +55,10 @@
 - Human asked to finish what was still missing against the spec.
 - Agent executed a real onchain demo flow on Celo Sepolia using the deployed escrow: created a job, accepted it, submitted proof, and released the scout payout.
 - Result: QueueKeeper now has a real live milestone payment transaction to show judges, not just deployed contracts and mocked UI.
+
+## 2026-03-21 04:30–05:10 UTC
+- Human requested a truthful, buildable MVP pass with no redesign and no overbuild.
+- Agent replaced broken sample-data imports with a real in-app demo store and added create/list/get/accept/proof/release API routes in `apps/web`.
+- Agent rewired buyer and runner screens to stored state, added scout proof support, persisted MetaMask delegation results, exported the real escrow ABI, and exposed optional `viem`-based live write paths.
+- Agent validated `pnpm typecheck`, `pnpm lint`, `pnpm build`, `forge test -vv`, and a local smoke flow that created, accepted, proved, and released a full demo job through the built app.
+- Result: the repo now ships a self-contained demo loop by default, with docs updated to call out the remaining mocks and limits honestly.

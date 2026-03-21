@@ -1,0 +1,35 @@
+{
+  "projectName": "QueueKeeper",
+  "tagline": "Private, delegated, staged queue procurement",
+  "repoUrl": "https://github.com/p0s/QueueKeeper",
+  "demoUrl": "",
+  "videoUrl": "",
+  "coverImagePath": "docs/assets/cover/README.md",
+  "screenshots": [
+    "docs/assets/screenshots/README.md"
+  ],
+  "tracks": [
+    "Synthesis Open Track",
+    "Venice",
+    "MetaMask",
+    "Self",
+    "Arkhai",
+    "Celo"
+  ],
+  "whatIsReal": [
+    "Self-contained web demo backend",
+    "Buyer and runner flows backed by stored state",
+    "Verified acceptance gate for exact location reveal",
+    "Stage proof timeline and buyer release controls",
+    "Passing Foundry tests",
+    "Optional live escrow writes via viem and MetaMask"
+  ],
+  "whatIsMocked": [
+    "Venice unless API credentials are provided",
+    "Self unless live verifier env vars are provided",
+    "MetaMask delegation when wallet permissions are unavailable",
+    "Repeated heartbeat releases",
+    "ProofHashRegistry integration into the active flow"
+  ],
+  "status": "draft"
+}

@@ -1,5 +1,7 @@
-import "dotenv/config";
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
 import { createPublicClient, http } from "viem";
 import {
   buildPlannerDecision,
@@ -9,6 +11,15 @@ import {
   type RunnerCandidate,
   type SelfVerificationResult
 } from "@queuekeeper/shared";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const agentDir = path.resolve(currentDir, "..");
+const repoRoot = path.resolve(agentDir, "../..");
+
+loadEnv({ path: path.join(repoRoot, ".env") });
+loadEnv({ path: path.join(agentDir, ".env"), override: true });
+loadEnv({ path: path.join(repoRoot, ".env.local"), override: true });
+loadEnv({ path: path.join(agentDir, ".env.local"), override: true });
 
 const port = Number(process.env.PORT ?? 3001);
 const rpcUrl = process.env.CELO_RPC_URL ?? "https://forno.celo-sepolia.celo-testnet.org";
@@ -35,7 +46,10 @@ type AcceptJobRequest = {
   verificationPayload: {
     reference?: string;
     mockVerified?: boolean;
-    proof?: string;
+    proof?: unknown;
+    publicSignals?: string[] | string;
+    attestationId?: number | string;
+    userContextData?: string;
     signal?: string;
   };
 };
@@ -112,7 +126,7 @@ class LiveVenicePlannerProvider implements PlannerProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Venice request failed: ${response.status}`);
+      throw new Error(`Venice request failed: ${response.status} ${await response.text()}`);
     }
 
     const json = (await response.json()) as {
@@ -157,6 +171,36 @@ class LiveSelfVerifier implements SelfVerifier {
     const apiUrl = process.env.SELF_API_URL;
     if (!apiUrl) throw new Error("SELF_API_URL missing");
 
+    let proof: unknown;
+    let publicSignals: string[] | undefined;
+
+    try {
+      proof = typeof input.proof === "string" ? JSON.parse(input.proof) : input.proof;
+      publicSignals = Array.isArray(input.publicSignals)
+        ? input.publicSignals
+        : typeof input.publicSignals === "string"
+          ? JSON.parse(input.publicSignals)
+          : undefined;
+    } catch (error) {
+      return {
+        status: "blocked",
+        provider: "self",
+        reference: input.reference ?? "self-live-blocked",
+        reason: error instanceof Error ? error.message : "Invalid Self payload JSON."
+      };
+    }
+
+    const attestationId = input.attestationId === undefined ? undefined : Number(input.attestationId);
+
+    if (!proof || !publicSignals || !attestationId || !input.userContextData) {
+      return {
+        status: "blocked",
+        provider: "self",
+        reference: input.reference ?? "self-live-blocked",
+        reason: "Self live verification requires proof, publicSignals, attestationId, and userContextData."
+      };
+    }
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -164,25 +208,28 @@ class LiveSelfVerifier implements SelfVerifier {
         ...(process.env.SELF_API_KEY ? { Authorization: `Bearer ${process.env.SELF_API_KEY}` } : {})
       },
       body: JSON.stringify({
-        proof: input.proof,
-        signal: input.signal,
+        proof,
+        publicSignals,
+        attestationId,
+        userContextData: input.userContextData,
         reference: input.reference
       })
     });
 
-    if (!response.ok) {
-      return {
-        status: "blocked",
-        provider: "self",
-        reference: input.reference ?? "self-live-blocked"
-      };
-    }
-
-    const json = (await response.json()) as { verified?: boolean; reference?: string };
+    const json = (await response.json()) as {
+      verified?: boolean;
+      result?: boolean;
+      status?: string;
+      reason?: string;
+      message?: string;
+      reference?: string;
+    };
+    const verified = response.ok && (json.verified ?? json.result ?? false);
     return {
-      status: json.verified ? "verified" : "blocked",
+      status: verified ? "verified" : "blocked",
       provider: "self",
-      reference: json.reference ?? input.reference ?? "self-live-reference"
+      reference: json.reference ?? input.reference ?? "self-live-reference",
+      reason: verified ? undefined : (json.reason ?? json.message ?? `Self request failed: ${response.status}`)
     };
   }
 }
@@ -205,12 +252,23 @@ function json<T>(status: number, body: T) {
 async function handlePlanner(request: Request) {
   const payload = (await request.json()) as HiddenPlannerRequest;
   const planner = getPlannerProvider();
-  const decision = await planner.decide(payload);
+  let decision: PlannerDecision;
+  let provider = veniceMode;
+  let reason: string | undefined;
+
+  try {
+    decision = await planner.decide(payload);
+  } catch (error) {
+    decision = buildPlannerDecision(payload);
+    provider = veniceMode === "live" ? "venice-fallback" : "mock";
+    reason = error instanceof Error ? error.message : String(error);
+  }
 
   return json(200, {
     summary: toPublicPlannerSummary(decision),
     meta: {
-      provider: veniceMode,
+      provider,
+      reason,
       hiddenFieldsPersistedServerSideOnly: ["hiddenExactLocation", "hiddenNotes", "maxBudget"]
     }
   });
@@ -224,7 +282,7 @@ async function handleAccept(request: Request) {
   if (verification.status !== "verified") {
     return json(403, {
       accepted: false,
-      reason: "Runner verification failed",
+      reason: verification.reason ?? "Runner verification failed",
       verification
     });
   }

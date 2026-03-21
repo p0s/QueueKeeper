@@ -147,8 +147,9 @@ Do **not** support in MVP:
 - accept job
 - receive exact location after acceptance
 - submit:
+ - scout proof
  - arrival proof
- - heartbeat proof(s)
+ - single heartbeat proof in the current MVP
  - completion proof
 - receive payouts
 
@@ -173,9 +174,8 @@ stateDiagram-v2
  Accepted --> Scouting
  Scouting --> ScoutComplete
  ScoutComplete --> Holding
- Holding --> Heartbeat1
- Heartbeat1 --> HeartbeatN
- HeartbeatN --> HandoffReady
+ Holding --> Heartbeat
+ Heartbeat --> HandoffReady
  HandoffReady --> Completed
  Accepted --> Cancelled
  Holding --> Expired
@@ -193,7 +193,8 @@ Small payment to verify the line exists and provide first ETA / photo proof.
 Runner reaches the exact location and proves presence.
 
 ### Stage 3 — heartbeat
-Small recurring payouts every N minutes after valid presence proof.
+The current MVP ships a single heartbeat payout after valid presence proof.
+Repeated heartbeat releases are a next-step extension, not an active claim.
 
 ### Stage 4 — handoff
 Large final completion payment after user confirms takeover or after completion condition passes.
@@ -204,7 +205,7 @@ Micropayments are **not** the whole product.
 They are used where they reduce trust:
 
 - tiny scout fee before the user commits,
-- small heartbeat releases while the runner is actively holding the spot,
+- a heartbeat release while the runner is actively holding the spot,
 - large final bonus only on handoff.
 
 This minimizes exposure:
@@ -331,7 +332,7 @@ Responsibilities:
 Possible caveats:
 - max total spend
 - max scout spend
-- max heartbeat count
+- single heartbeat in the current MVP
 - expiry timestamp
 - stablecoin allowlist
 - jobId binding
@@ -339,10 +340,13 @@ Possible caveats:
 
 ### 15.3 ProofHashRegistry.sol
 Responsibilities:
-- store proof hashes
+- future proof-hash mirror for the escrow flow
 - stage metadata
 - optional encrypted URI pointer
 - keep onchain artifacts visible without exposing full media
+
+Current MVP note:
+- this registry is deployed but not wired into the active escrow flow yet
 
 ### 15.4 YieldReserveAdapter.sol (stretch)
 Responsibilities:
@@ -449,12 +453,12 @@ Must immediately see:
 
 Must show live:
 1. buyer creates job
-2. delegation created
+2. delegation requested or the bounded fallback policy record shown truthfully
 3. escrow funded
 4. runner accepted
-5. arrival proof submitted
+5. scout or arrival proof submitted
 6. stage payment released
-7. heartbeat / completion payout released
+7. single heartbeat / completion payout released
 8. receipt timeline visible
 
 Nice to show:
