@@ -14,8 +14,12 @@ export const queueKeeperEscrowAbi = [
           { name: "arrivalFee", type: "uint96" },
           { name: "heartbeatFee", type: "uint96" },
           { name: "completionFee", type: "uint96" },
+          { name: "heartbeatCount", type: "uint8" },
+          { name: "lowRiskAutoReleaseWindow", type: "uint32" },
+          { name: "disputeWindow", type: "uint32" },
           { name: "expiry", type: "uint64" },
-          { name: "detailsHash", type: "bytes32" }
+          { name: "detailsHash", type: "bytes32" },
+          { name: "arbiter", type: "address" }
         ]
       }
     ],
@@ -72,6 +76,43 @@ export const queueKeeperEscrowAbi = [
   },
   {
     type: "function",
+    name: "autoReleaseStage",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "jobId", type: "uint256" },
+      { name: "proofStage", type: "uint8" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "disputeStage",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "jobId", type: "uint256" },
+      { name: "proofStage", type: "uint8" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "settleDispute",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "jobId", type: "uint256" },
+      { name: "releaseToRunner", type: "bool" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "refundJob",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "jobId", type: "uint256" }],
+    outputs: []
+  },
+  {
+    type: "function",
     name: "nextJobId",
     stateMutability: "view",
     inputs: [],
@@ -89,6 +130,16 @@ export const queueKeeperEscrowAbi = [
   },
   {
     type: "function",
+    name: "proofSubmittedAt",
+    stateMutability: "view",
+    inputs: [
+      { name: "", type: "uint256" },
+      { name: "", type: "uint8" }
+    ],
+    outputs: [{ name: "", type: "uint64" }]
+  },
+  {
+    type: "function",
     name: "jobs",
     stateMutability: "view",
     inputs: [{ name: "", type: "uint256" }],
@@ -96,6 +147,7 @@ export const queueKeeperEscrowAbi = [
       { name: "buyer", type: "address" },
       { name: "token", type: "address" },
       { name: "runner", type: "address" },
+      { name: "arbiter", type: "address" },
       { name: "scoutFee", type: "uint96" },
       { name: "arrivalFee", type: "uint96" },
       { name: "heartbeatFee", type: "uint96" },
@@ -103,9 +155,18 @@ export const queueKeeperEscrowAbi = [
       { name: "totalAmount", type: "uint96" },
       { name: "expiry", type: "uint64" },
       { name: "detailsHash", type: "bytes32" },
+      { name: "lowRiskAutoReleaseWindow", type: "uint32" },
+      { name: "disputeWindow", type: "uint32" },
+      { name: "heartbeatCount", type: "uint8" },
+      { name: "heartbeatsReleased", type: "uint8" },
+      { name: "disputedStage", type: "uint8" },
       { name: "stage", type: "uint8" },
       { name: "accepted", type: "bool" },
-      { name: "refunded", type: "bool" }
+      { name: "refunded", type: "bool" },
+      { name: "scoutReleased", type: "bool" },
+      { name: "arrivalReleased", type: "bool" },
+      { name: "completionReleased", type: "bool" },
+      { name: "disputed", type: "bool" }
     ]
   },
   {
@@ -150,6 +211,26 @@ export const queueKeeperEscrowAbi = [
       { indexed: true, name: "stage", type: "uint8" },
       { indexed: true, name: "runner", type: "address" },
       { indexed: false, name: "amount", type: "uint256" }
+    ]
+  },
+  {
+    type: "event",
+    name: "StageDisputed",
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "jobId", type: "uint256" },
+      { indexed: true, name: "proofStage", type: "uint8" },
+      { indexed: false, name: "buyer", type: "address" }
+    ]
+  },
+  {
+    type: "event",
+    name: "DisputeSettled",
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "jobId", type: "uint256" },
+      { indexed: true, name: "proofStage", type: "uint8" },
+      { indexed: false, name: "releasedToRunner", type: "bool" }
     ]
   }
 ] as const;
