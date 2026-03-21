@@ -190,3 +190,21 @@ test("idempotent draft creation returns the same job", () => {
   assert.notEqual(first.job.id, second.job.id);
   assert.equal(second.job.id, third.job.id);
 });
+
+test("public list exposes verified-pool jobs and hides direct dispatch jobs", () => {
+  const core = createTestCore("pool");
+  const direct = createDraft(core, { mode: "DIRECT_DISPATCH", title: "Direct only" });
+  core.postJob({ jobId: direct.job.id, buyerToken: direct.buyerToken });
+
+  const pool = createDraft(core, {
+    mode: "VERIFIED_POOL",
+    title: "Pool listing",
+    selectedRunnerAddress: undefined,
+    plannerAction: "scout-only"
+  });
+  core.postJob({ jobId: pool.job.id, buyerToken: pool.buyerToken });
+
+  const publicJobs = core.listJobs("public").jobs;
+  assert.ok(publicJobs.some((job) => job.title === "Pool listing"));
+  assert.ok(!publicJobs.some((job) => job.title === "Direct only"));
+});

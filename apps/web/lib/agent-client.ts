@@ -9,6 +9,7 @@ import {
   type QueueJobView,
   type QueueStageKey,
   type ReleaseStageRequest,
+  type SelfVerificationSessionView,
   type SubmitProofRequest
 } from "@queuekeeper/shared";
 import { QueueKeeperClient } from "@queuekeeper/sdk";
@@ -114,6 +115,14 @@ export async function submitDemoProof(jobId: string, request: SubmitProofRequest
 
 export async function fetchProofBundle(jobId: string, stageId: string, token: string) {
   return getClient().getProofBundle(jobId, stageId, token);
+}
+
+export async function createSelfVerificationSession(jobId: string, runnerAddress: string) {
+  return getClient().createSelfSession(jobId, runnerAddress);
+}
+
+export async function fetchSelfVerificationSession(sessionId: string) {
+  return getClient().getSelfSession(sessionId);
 }
 
 export async function approveDemoStage(jobId: string, request: ApproveStageRequest): Promise<QueueJobView> {

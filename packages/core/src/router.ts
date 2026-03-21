@@ -25,6 +25,7 @@ type PlannerResult = {
 type QueueKeeperRouterDeps = {
   plan: (input: PlannerInput) => Promise<PlannerResult>;
   verify: (input: AcceptJobVerificationPayload) => Promise<SelfVerificationResult>;
+  verifySession?: (input: { sessionId: string; payload: Record<string, unknown> }) => Promise<{ verified: boolean; reason?: string | null; resultJson?: unknown }>;
 };
 
 function json(status: number, body: unknown) {
@@ -68,6 +69,20 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       return json(200, core.openApiDocument(`${url.origin}/v1`));
     }
 
+    if (request.method === "POST" && pathname === "/v1/internal/reconcile") {
+      const internalToken = process.env.QUEUEKEEPER_INTERNAL_API_TOKEN;
+      const bearer = readBearer(request);
+      if (!internalToken || bearer !== internalToken) {
+        return json(401, {
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Valid internal reconcile token required."
+          }
+        });
+      }
+      return json(200, core.reconcileAllJobs());
+    }
+
     if (request.method === "POST" && pathname === "/v1/planner/preview") {
       const payload = (await request.json()) as PlannerInput;
       return json(200, await deps.plan(payload));
@@ -82,6 +97,29 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           ? await deps.plan(payload.plannerInput)
           : undefined;
       return json(200, core.createJobDraft(parseBuyerForm(payload, planner), idempotencyKey));
+    }
+
+    if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && request.method === "POST" && segments.length === 3) {
+      const payload = (await request.json()) as { jobId: string; runnerAddress: string };
+      return json(200, core.createSelfVerificationSession(payload.jobId, payload.runnerAddress, url.origin));
+    }
+
+    if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && segments[3] && request.method === "GET") {
+      return json(200, core.getSelfVerificationSession(segments[3]));
+    }
+
+    if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && segments[3] && segments[4] === "verify" && request.method === "POST") {
+      if (!deps.verifySession) {
+        return json(501, {
+          error: {
+            code: "NOT_IMPLEMENTED",
+            message: "Self session verification is not configured."
+          }
+        });
+      }
+      const payload = (await request.json()) as Record<string, unknown>;
+      const result = await deps.verifySession({ sessionId: segments[3], payload });
+      return json(200, core.completeSelfVerificationSession(segments[3], result));
     }
 
     if (request.method === "GET" && pathname === "/v1/jobs") {
@@ -127,7 +165,24 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "accept") {
         const payload = (await request.json()) as { runnerAddress: string; verificationPayload: AcceptJobVerificationPayload; txHash?: string };
-        const verification = await deps.verify(payload.verificationPayload);
+        let verification: SelfVerificationResult;
+        if (payload.verificationPayload.sessionId) {
+          const session = core.getSelfVerificationSession(payload.verificationPayload.sessionId);
+          verification = session.status === "verified"
+            ? {
+                status: "verified",
+                provider: "self",
+                reference: session.reference
+              }
+            : {
+                status: "blocked",
+                provider: "self",
+                reference: session.reference,
+                reason: session.reason ?? "Self verification session is not verified."
+              };
+        } else {
+          verification = await deps.verify(payload.verificationPayload);
+        }
         if (verification.status !== "verified") {
           return json(403, {
             accepted: false,

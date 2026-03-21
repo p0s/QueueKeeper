@@ -274,6 +274,16 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
             <input className="input" value={form.timingWindow ?? "Within the next 2 hours"} onChange={(event) => updateForm("timingWindow", event.target.value)} />
           </label>
           <label className="field">
+            <span>Waiting tolerance (minutes)</span>
+            <input className="input" inputMode="numeric" type="number" value={form.waitingToleranceMinutes ?? 10} onChange={(event) => updateForm("waitingToleranceMinutes", Number(event.target.value))} />
+          </label>
+          {(form.mode ?? "DIRECT_DISPATCH") === "DIRECT_DISPATCH" ? (
+            <label className="field">
+              <span>Dispatch runner address</span>
+              <input className="input" value={form.selectedRunnerAddress ?? ""} onChange={(event) => updateForm("selectedRunnerAddress", event.target.value)} />
+            </label>
+          ) : null}
+          <label className="field">
             <span>Exact destination</span>
             <textarea
               className="textarea"

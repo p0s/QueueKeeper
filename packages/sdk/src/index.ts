@@ -11,6 +11,7 @@ import type {
   QueueJobTimelineResponse,
   QueueJobsListResponse,
   QueueProofBundleView,
+  SelfVerificationSessionView,
   QueueViewerRole,
   RevealDataResponse,
   SettleDisputeRequest,
@@ -92,6 +93,19 @@ export class QueueKeeperClient {
     return this.request<AcceptJobResponse>(`/v1/jobs/${jobId}/accept`, {
       method: "POST",
       body: JSON.stringify(payload)
+    });
+  }
+
+  async createSelfSession(jobId: string, runnerAddress: string) {
+    return this.request<SelfVerificationSessionView>("/v1/self/sessions", {
+      method: "POST",
+      body: JSON.stringify({ jobId, runnerAddress })
+    });
+  }
+
+  async getSelfSession(sessionId: string) {
+    return this.request<SelfVerificationSessionView>(`/v1/self/sessions/${sessionId}`, {
+      method: "GET"
     });
   }
 

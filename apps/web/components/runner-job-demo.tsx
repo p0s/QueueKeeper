@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { QueueJobView, QueueStageKey } from "@queuekeeper/shared";
+import { SelfQRcodeWrapper } from "@selfxyz/qrcode";
+import type { QueueJobView, QueueStageKey, SelfVerificationSessionView } from "@queuekeeper/shared";
 import {
+  createSelfVerificationSession,
   fetchProofBundle,
+  fetchSelfVerificationSession,
   makeDefaultProofHash,
   requestRunnerAcceptance,
   submitDemoProof
@@ -11,6 +14,7 @@ import {
 import { acceptLiveJob, submitLiveProof } from "../lib/chain-client";
 import { buildTxExplorerLinks } from "../lib/explorer";
 import { getCachedOnchainJobId, getCachedTxHashes, rememberTxHash } from "../lib/live-chain-cache";
+import { buildSelfApp, getSelfDeepLink } from "../lib/self";
 import { ExplorerPanel } from "./explorer-panel";
 import { JobTimeline } from "./job-timeline";
 import { PolicyCard } from "./policy-card";
@@ -30,10 +34,7 @@ export function RunnerJobDemo({
   const [job, setJob] = useState(initialJob);
   const [runnerAddress, setRunnerAddress] = useState(initialJob.acceptedRunnerAddress ?? initialJob.selectedRunnerAddress ?? "0xa11ce0000000000000000000000000000000001");
   const [verificationReference, setVerificationReference] = useState(`self-${jobId}`);
-  const [verificationProof, setVerificationProof] = useState("");
-  const [verificationPublicSignals, setVerificationPublicSignals] = useState("");
-  const [verificationAttestationId, setVerificationAttestationId] = useState("1");
-  const [verificationUserContextData, setVerificationUserContextData] = useState("");
+  const [selfSession, setSelfSession] = useState<SelfVerificationSessionView | null>(null);
   const [acceptState, setAcceptState] = useState<string>("Not accepted yet");
   const [revealToken, setRevealToken] = useState<string | undefined>(initialRevealToken);
   const [sendLiveTx, setSendLiveTx] = useState(false);
@@ -48,6 +49,18 @@ export function RunnerJobDemo({
     setOnchainJobId(getCachedOnchainJobId(jobId));
     setCachedTxHashes(getCachedTxHashes(jobId));
   }, [jobId]);
+
+  useEffect(() => {
+    if (!selfSession || selfSession.status !== "pending") return;
+    const interval = window.setInterval(async () => {
+      const next = await fetchSelfVerificationSession(selfSession.sessionId);
+      setSelfSession(next);
+      if (next.status === "verified") {
+        setAcceptState(`Self verification succeeded · session ${next.sessionId}`);
+      }
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [selfSession]);
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
     let binary = "";
@@ -79,11 +92,8 @@ export function RunnerJobDemo({
         runnerAddress,
         verificationPayload: {
           reference: verificationReference,
-          mockVerified: liveSelfMode ? undefined : true,
-          proof: verificationProof || undefined,
-          publicSignals: verificationPublicSignals || undefined,
-          attestationId: verificationAttestationId || undefined,
-          userContextData: verificationUserContextData || undefined
+          sessionId: liveSelfMode ? selfSession?.sessionId : undefined,
+          mockVerified: liveSelfMode ? undefined : true
         },
         txHash
       });
@@ -180,22 +190,35 @@ export function RunnerJobDemo({
           </label>
           {liveSelfMode ? (
             <>
-              <label className="field">
-                <span>Self proof</span>
-                <textarea className="textarea" value={verificationProof} onChange={(event) => setVerificationProof(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Self publicSignals JSON</span>
-                <textarea className="textarea" value={verificationPublicSignals} onChange={(event) => setVerificationPublicSignals(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Self attestationId</span>
-                <input className="input" value={verificationAttestationId} onChange={(event) => setVerificationAttestationId(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Self userContextData</span>
-                <input className="input" value={verificationUserContextData} onChange={(event) => setVerificationUserContextData(event.target.value)} />
-              </label>
+              <button
+                className="button"
+                onClick={async () => {
+                  const session = await createSelfVerificationSession(jobId, runnerAddress);
+                  setSelfSession(session);
+                  setAcceptState(`Self verification session created · ${session.sessionId}`);
+                }}
+                type="button"
+              >
+                Start Self verification
+              </button>
+              {selfSession ? (
+                <section className="card">
+                  <strong>Self verification</strong>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    Session: {selfSession.sessionId} · status: {selfSession.status}
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <SelfQRcodeWrapper
+                      selfApp={buildSelfApp(selfSession)}
+                      onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}
+                      onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId))}
+                    />
+                  </div>
+                  <a className="button" href={getSelfDeepLink(selfSession)} rel="noreferrer" style={{ marginTop: 12 }} target="_blank">
+                    Open Self on mobile
+                  </a>
+                </section>
+              ) : null}
             </>
           ) : null}
           <label className="checkbox-row">
@@ -204,7 +227,7 @@ export function RunnerJobDemo({
           </label>
           {liveSelfMode ? (
             <div className="muted">
-              Live Self verification is enabled. Acceptance will use the proof package above; the mock verifier is not used in this mode.
+              Live Self verification is enabled. Acceptance is blocked until the current Self session is verified by the backend.
             </div>
           ) : (
             <div className="muted">
@@ -213,7 +236,7 @@ export function RunnerJobDemo({
           )}
           <button
             className="button"
-            disabled={liveSelfMode && (!verificationProof.trim() || !verificationPublicSignals.trim() || !verificationAttestationId.trim() || !verificationUserContextData.trim())}
+            disabled={liveSelfMode && selfSession?.status !== "verified"}
             onClick={handleAccept}
             type="button"
           >

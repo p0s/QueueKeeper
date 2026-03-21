@@ -10,6 +10,8 @@
     "lint": "tsc -p tsconfig.typecheck.json --noEmit"
   },
   "dependencies": {
+    "@selfxyz/core": "1.2.0-beta.1",
+    "@selfxyz/qrcode": "1.0.22",
     "@queuekeeper/core": "workspace:*",
     "@queuekeeper/sdk": "workspace:*",
     "@metamask/smart-accounts-kit": "0.4.0-beta.1",

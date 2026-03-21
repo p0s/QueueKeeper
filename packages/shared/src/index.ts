@@ -175,6 +175,7 @@ export interface BuyerJobFormInput {
   privateFallbackInstructions?: string;
   sensitiveBuyerPreferences?: string;
   handoffSecret?: string;
+  waitingToleranceMinutes?: number;
   maxSpendUsd: number;
   scoutFeeUsd: number;
   arrivalFeeUsd: number;
@@ -217,6 +218,7 @@ export interface DelegationUpdateRequest {
 
 export interface AcceptJobVerificationPayload {
   reference?: string;
+  sessionId?: string;
   mockVerified?: boolean;
   proof?: unknown;
   publicSignals?: string[] | string;
@@ -349,6 +351,24 @@ export interface SettleDisputeRequest {
 export interface QueueJobTimelineResponse {
   job: QueueJobView;
   events: QueueTimelineEventView[];
+}
+
+export interface SelfVerificationSessionView {
+  sessionId: string;
+  jobId: string;
+  runnerAddress: string;
+  scope: string;
+  appName: string;
+  endpoint: string;
+  endpointType: "https" | "staging_https" | "celo" | "staging_celo";
+  userId: string;
+  userIdType: "hex" | "uuid";
+  userDefinedData: string;
+  status: "pending" | "verified" | "failed";
+  provider: "self";
+  reference: string;
+  verifiedAt?: string | null;
+  reason?: string | null;
 }
 
 export interface QueueJobsListResponse {

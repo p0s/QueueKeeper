@@ -22,6 +22,7 @@ import {
   type QueueJobView,
   type QueueProofBundleView,
   type QueueSecretPayload,
+  type SelfVerificationSessionView,
   type QueueStageKey,
   type QueueStageStatus,
   type QueueStageView,
@@ -116,6 +117,29 @@ type QueueKeeperCoreConfig = {
   encryptionKey: Buffer;
   arbiterToken: string | null;
 };
+
+type VerificationSessionRecord = {
+  id: string;
+  jobId: string;
+  runnerAddress: string;
+  scope: string;
+  appName: string;
+  endpoint: string;
+  endpointType: "https" | "staging_https" | "celo" | "staging_celo";
+  userId: string;
+  userIdType: "hex" | "uuid";
+  userDefinedData: string;
+  status: "pending" | "verified" | "failed";
+  provider: "self";
+  reference: string;
+  verifiedAt: string | null;
+  reason: string | null;
+  resultJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type VerificationSessionRow = Record<string, unknown>;
 
 type StageTemplate = {
   jobId: string;
@@ -323,6 +347,26 @@ export class QueueKeeperCore {
         response_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS verification_sessions (
+        id TEXT PRIMARY KEY,
+        job_id TEXT NOT NULL,
+        runner_address TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        app_name TEXT NOT NULL,
+        endpoint TEXT NOT NULL,
+        endpoint_type TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_id_type TEXT NOT NULL,
+        user_defined_data TEXT NOT NULL,
+        status TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        reference TEXT NOT NULL,
+        verified_at TEXT,
+        reason TEXT,
+        result_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -368,6 +412,7 @@ export class QueueKeeperCore {
       const plannerAction = input.plannerAction ?? input.plannerPreview?.action ?? "scout-then-hold";
       const plannerReason = input.plannerReason ?? input.plannerPreview?.reason ?? "Planner preview not yet recorded.";
       const plannerProvider = input.plannerProvider ?? "mock";
+      const mode = input.mode ?? "DIRECT_DISPATCH";
 
       this.db.prepare(`
         INSERT INTO jobs (
@@ -385,16 +430,16 @@ export class QueueKeeperCore {
         jobId,
         sha256Hex(buyerToken),
         input.buyerAddress ?? null,
-        input.mode ?? "DIRECT_DISPATCH",
+        mode,
         input.title,
         input.coarseArea,
         input.timingWindow ?? "Within the next 2 hours",
-        input.mode ? "SELF_VERIFIED" : "SELF_VERIFIED",
+        "SELF_VERIFIED",
         plannerAction,
         plannerReason,
         plannerProvider,
-        input.selectedRunnerAddress ?? null,
-        input.selectedRunnerAddress ?? null,
+        mode === "DIRECT_DISPATCH" ? input.selectedRunnerAddress ?? null : null,
+        mode === "DIRECT_DISPATCH" ? input.selectedRunnerAddress ?? null : null,
         secretObjectKey,
         sha256Hex(JSON.stringify(secretPayload)),
         input.maxSpendUsd,
@@ -431,7 +476,7 @@ export class QueueKeeperCore {
       }
 
       this.recordEvent(jobId, "job.drafted", "buyer", input.buyerAddress ?? null, "Draft created with encrypted secret payload.", {
-        mode: input.mode ?? "DIRECT_DISPATCH",
+        mode,
         plannerAction
       });
 
@@ -493,10 +538,23 @@ export class QueueKeeperCore {
   }
 
   listJobs(viewer: QueueViewerRole = "public") {
-    const rows = this.db.prepare("SELECT * FROM jobs ORDER BY updated_at DESC").all() as CoreJobRecord[];
+    const rows = this.db.prepare("SELECT * FROM jobs ORDER BY updated_at DESC").all() as CoreJobRow[];
+    const jobs = rows.map((row) => this.mapJobRow(row));
+    for (const row of jobs) this.reconcileJob(row.id);
+    const visibleJobs = viewer === "public"
+      ? jobs.filter((job) => job.mode === "VERIFIED_POOL" && job.status === "posted" && !job.acceptedRunnerAddress)
+      : jobs;
+    return {
+      jobs: visibleJobs.map((job) => this.toView(this.getJobRecord(job.id), viewer))
+    };
+  }
+
+  reconcileAllJobs() {
+    const rows = this.db.prepare("SELECT id FROM jobs").all() as Array<{ id: string }>;
     for (const row of rows) this.reconcileJob(row.id);
     return {
-      jobs: rows.map((job) => this.toView(this.getJobRecord(job.id), viewer))
+      reconciled: rows.length,
+      publicJobs: this.listJobs("public").jobs.length
     };
   }
 
@@ -566,6 +624,61 @@ export class QueueKeeperCore {
       },
       exactLocation: secret.exactLocation
     };
+  }
+
+  createSelfVerificationSession(jobId: string, runnerAddress: string, origin: string): SelfVerificationSessionView {
+    const job = this.getJobRecord(jobId);
+    const sessionId = crypto.randomUUID();
+    const scope = process.env.NEXT_PUBLIC_SELF_SCOPE ?? process.env.SELF_SCOPE ?? "queuekeeper";
+    const appName = process.env.NEXT_PUBLIC_SELF_APP_NAME ?? process.env.SELF_APP_NAME ?? "QueueKeeper";
+    const endpointType = (process.env.NEXT_PUBLIC_SELF_ENDPOINT_TYPE ?? process.env.SELF_ENDPOINT_TYPE ?? "staging_https") as SelfVerificationSessionView["endpointType"];
+    const endpoint = `${origin}/api/v1/self/sessions/${sessionId}/verify`;
+    const userDefinedData = `0x${Buffer.from(JSON.stringify({ jobId, sessionId })).toString("hex")}`;
+    const createdAt = nowIso();
+
+    this.db.prepare(`
+      INSERT INTO verification_sessions (
+        id, job_id, runner_address, scope, app_name, endpoint, endpoint_type, user_id, user_id_type,
+        user_defined_data, status, provider, reference, verified_at, reason, result_json, created_at, updated_at
+      ) VALUES (
+        ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'hex',
+        ?9, 'pending', 'self', ?10, NULL, NULL, NULL, ?11, ?11
+      )
+    `).run(sessionId, jobId, runnerAddress, scope, appName, endpoint, endpointType, runnerAddress, userDefinedData, sessionId, createdAt);
+
+    this.recordEvent(jobId, "verification.session.created", "runner", runnerAddress, "Runner started a Self verification session.", {
+      sessionId
+    });
+
+    return this.getSelfVerificationSession(sessionId);
+  }
+
+  getSelfVerificationSession(sessionId: string): SelfVerificationSessionView {
+    const row = this.db.prepare("SELECT * FROM verification_sessions WHERE id = ?1").get(sessionId) as VerificationSessionRow | undefined;
+    if (!row) throw this.error("NOT_FOUND", `Verification session ${sessionId} was not found.`);
+    return this.mapVerificationSession(row);
+  }
+
+  completeSelfVerificationSession(sessionId: string, result: {
+    verified: boolean;
+    reason?: string | null;
+    resultJson?: unknown;
+  }) {
+    const session = this.getSelfVerificationSession(sessionId);
+    const status = result.verified ? "verified" : "failed";
+    const verifiedAt = result.verified ? nowIso() : null;
+    this.db.prepare(`
+      UPDATE verification_sessions
+      SET status = ?2, verified_at = ?3, reason = ?4, result_json = ?5, updated_at = ?6
+      WHERE id = ?1
+    `).run(sessionId, status, verifiedAt, result.reason ?? null, result.resultJson ? JSON.stringify(result.resultJson) : null, nowIso());
+
+    this.recordEvent(session.jobId, "verification.session.completed", "runner", session.runnerAddress, result.verified ? "Self verification succeeded." : "Self verification failed.", {
+      sessionId,
+      reason: result.reason ?? null
+    });
+
+    return this.getSelfVerificationSession(sessionId);
   }
 
   getRevealData(jobId: string, revealToken: string): RevealDataResponse {
@@ -881,38 +994,70 @@ export class QueueKeeperCore {
   }
 
   private seedIfEmpty() {
-    const count = this.db.prepare("SELECT COUNT(*) as count FROM jobs").get() as { count: number };
-    if (count.count > 0) return;
+    const directCount = this.db.prepare("SELECT COUNT(*) as count FROM jobs WHERE mode = 'DIRECT_DISPATCH'").get() as { count: number };
+    if (directCount.count === 0) {
+      const draft = this.createJobDraft({
+        mode: "DIRECT_DISPATCH",
+        title: "Conference merch queue hold",
+        coarseArea: "Moscone West / Howard St",
+        timingWindow: "Today, next 2 hours",
+        exactLocation: "North entrance merch queue next to the red sponsor arch",
+        hiddenNotes: "Scout first, then hold only if the line stays shorter than the block corner.",
+        privateFallbackInstructions: "Abort if staff begins wristband-only access.",
+        sensitiveBuyerPreferences: "Buyer only needs the spot, not the merch itself.",
+        handoffSecret: "MERCH-2026-HANDOFF",
+        waitingToleranceMinutes: 10,
+        maxSpendUsd: 35,
+        scoutFeeUsd: 4,
+        arrivalFeeUsd: 6,
+        heartbeatFeeUsd: 5,
+        completionFeeUsd: 15,
+        expiresInMinutes: 120,
+        heartbeatCount: 3,
+        heartbeatIntervalSeconds: 300,
+        buyerAddress: "0xb0b0000000000000000000000000000000000001",
+        selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
+        plannerAction: "scout-then-hold",
+        plannerReason: "Seeded dispatch-first demo path.",
+        plannerProvider: "seed"
+      });
 
-    const draft = this.createJobDraft({
-      mode: "DIRECT_DISPATCH",
-      title: "Conference merch queue hold",
-      coarseArea: "Moscone West / Howard St",
-      timingWindow: "Today, next 2 hours",
-      exactLocation: "North entrance merch queue next to the red sponsor arch",
-      hiddenNotes: "Scout first, then hold only if the line stays shorter than the block corner.",
-      privateFallbackInstructions: "Abort if staff begins wristband-only access.",
-      sensitiveBuyerPreferences: "Buyer only needs the spot, not the merch itself.",
-      handoffSecret: "MERCH-2026-HANDOFF",
-      maxSpendUsd: 35,
-      scoutFeeUsd: 4,
-      arrivalFeeUsd: 6,
-      heartbeatFeeUsd: 5,
-      completionFeeUsd: 15,
-      expiresInMinutes: 120,
-      heartbeatCount: 3,
-      heartbeatIntervalSeconds: 300,
-      buyerAddress: "0xb0b0000000000000000000000000000000000001",
-      selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
-      plannerAction: "scout-then-hold",
-      plannerReason: "Seeded dispatch-first demo path.",
-      plannerProvider: "seed"
-    });
+      this.postJob({
+        jobId: draft.job.id,
+        buyerToken: draft.buyerToken
+      });
+    }
 
-    this.postJob({
-      jobId: draft.job.id,
-      buyerToken: draft.buyerToken
-    });
+    const poolCount = this.db.prepare("SELECT COUNT(*) as count FROM jobs WHERE mode = 'VERIFIED_POOL'").get() as { count: number };
+    if (poolCount.count === 0) {
+      const poolDraft = this.createJobDraft({
+        mode: "VERIFIED_POOL",
+        title: "Cafe opening queue scout",
+        coarseArea: "Mission / Valencia",
+        timingWindow: "This afternoon",
+        exactLocation: "Valencia side entrance near the patio gate",
+        hiddenNotes: "Scout only if the line is under 20 people.",
+        privateFallbackInstructions: "Abort if the staff switches to reservation-only entry.",
+        waitingToleranceMinutes: 20,
+        maxSpendUsd: 18,
+        scoutFeeUsd: 3,
+        arrivalFeeUsd: 4,
+        heartbeatFeeUsd: 2,
+        completionFeeUsd: 5,
+        expiresInMinutes: 90,
+        heartbeatCount: 2,
+        heartbeatIntervalSeconds: 180,
+        buyerAddress: "0xb0b0000000000000000000000000000000000002",
+        plannerAction: "scout-only",
+        plannerReason: "Seeded verified-pool path.",
+        plannerProvider: "seed"
+      });
+
+      this.postJob({
+        jobId: poolDraft.job.id,
+        buyerToken: poolDraft.buyerToken
+      });
+    }
   }
 
   private insertStage(stage: StageTemplate & { id?: string }) {
@@ -1185,6 +1330,26 @@ export class QueueKeeperCore {
   private hasPendingStage(jobId: string, key: QueueStageKey) {
     const row = this.db.prepare("SELECT id FROM stages WHERE job_id = ?1 AND stage_key = ?2 LIMIT 1").get(jobId, key) as { id: string } | undefined;
     return Boolean(row);
+  }
+
+  private mapVerificationSession(row: VerificationSessionRow): SelfVerificationSessionView {
+    return {
+      sessionId: String(row.id),
+      jobId: String(row.job_id),
+      runnerAddress: String(row.runner_address),
+      scope: String(row.scope),
+      appName: String(row.app_name),
+      endpoint: String(row.endpoint),
+      endpointType: row.endpoint_type as SelfVerificationSessionView["endpointType"],
+      userId: String(row.user_id),
+      userIdType: row.user_id_type as SelfVerificationSessionView["userIdType"],
+      userDefinedData: String(row.user_defined_data),
+      status: row.status as SelfVerificationSessionView["status"],
+      provider: "self",
+      reference: String(row.reference),
+      verifiedAt: row.verified_at ? String(row.verified_at) : null,
+      reason: row.reason ? String(row.reason) : null
+    };
   }
 
   private mapJobRow(row: CoreJobRow): CoreJobRecord {

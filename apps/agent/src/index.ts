@@ -2,7 +2,8 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
-import { handleQueueKeeperApi } from "@queuekeeper/core";
+import { getQueueKeeperCore, handleQueueKeeperApi } from "@queuekeeper/core";
+import { AllIds, DefaultConfigStore, SelfBackendVerifier } from "@selfxyz/core";
 import { createPublicClient, http } from "viem";
 import {
   buildPlannerDecision,
@@ -274,6 +275,49 @@ async function previewPlanner(payload: HiddenPlannerRequest) {
   };
 }
 
+async function verifySession(input: { sessionId: string; payload: Record<string, unknown> }) {
+  const session = getQueueKeeperCore().getSelfVerificationSession(input.sessionId);
+  const verifier = new SelfBackendVerifier(
+    session.scope,
+    session.endpoint,
+    String(process.env.SELF_MOCK_PASSPORT ?? "true") === "true",
+    AllIds,
+    new DefaultConfigStore({
+      minimumAge: 18,
+      excludedCountries: [],
+      ofac: false
+    }),
+    session.userIdType
+  );
+
+  try {
+    const result = await verifier.verify(
+      Number(input.payload.attestationId) as never,
+      input.payload.proof as never,
+      (input.payload.publicSignals ?? input.payload.pubSignals) as never,
+      String(input.payload.userContextData ?? session.userDefinedData)
+    );
+    return {
+      verified: result.isValidDetails.isValid,
+      reason: result.isValidDetails.isValid ? null : "Self verification did not pass cryptographic validation.",
+      resultJson: result
+    };
+  } catch (error) {
+    const verification = await getSelfVerifier().verify({
+      reference: session.reference,
+      proof: input.payload.proof,
+      publicSignals: (input.payload.publicSignals ?? input.payload.pubSignals) as string[] | string | undefined,
+      attestationId: input.payload.attestationId as number | string | undefined,
+      userContextData: input.payload.userContextData as string | undefined
+    });
+    return {
+      verified: verification.status === "verified",
+      reason: verification.reason ?? null,
+      resultJson: verification
+    };
+  }
+}
+
 async function handlePlanner(request: Request) {
   const payload = (await request.json()) as HiddenPlannerRequest;
   return json(200, await previewPlanner(payload));
@@ -326,7 +370,8 @@ const server = createServer(async (req, res) => {
     } else if (url.pathname.startsWith("/v1/")) {
       response = await handleQueueKeeperApi(request, {
         plan: previewPlanner,
-        verify: async (payload) => getSelfVerifier().verify(payload)
+        verify: async (payload) => getSelfVerifier().verify(payload),
+        verifySession
       });
     } else if (req.method === "POST" && url.pathname === "/planner/decide") {
       response = await handlePlanner(request);
