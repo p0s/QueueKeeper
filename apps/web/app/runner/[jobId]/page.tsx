@@ -1,5 +1,5 @@
 import { RunnerJobDemo } from "../../../components/runner-job-demo";
-import { getDemoJob } from "../../../lib/demo-store";
+import { getQueueKeeperCore } from "@queuekeeper/core";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +13,13 @@ export default async function RunnerJobPage({
 }) {
   const { jobId } = await params;
   const { revealToken } = await searchParams;
-  const job = getDemoJob(jobId, "runner", revealToken);
-
-  if (!job) {
+  let job;
+  try {
+    const core = getQueueKeeperCore();
+    job = core.getJob(jobId, revealToken ? "runner" : "public", {
+      revealToken
+    });
+  } catch {
     notFound();
   }
 

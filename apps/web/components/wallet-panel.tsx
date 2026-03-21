@@ -9,6 +9,7 @@ type WalletPanelProps = {
   connected?: boolean;
   funded?: boolean;
   jobId?: string;
+  buyerToken?: string | null;
   policy?: DelegationPolicyView;
   onPolicyUpdated?: (job: QueueJobView) => void;
 };
@@ -17,7 +18,7 @@ type BrowserEthereum = {
   request?: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
 };
 
-export function WalletPanel({ connected = false, funded = false, jobId, policy, onPolicyUpdated }: WalletPanelProps) {
+export function WalletPanel({ connected = false, funded = false, jobId, buyerToken, policy, onPolicyUpdated }: WalletPanelProps) {
   const [status, setStatus] = useState(connected ? "connected" : "not connected");
   const [account, setAccount] = useState<string | null>(null);
   const [delegationStatus, setDelegationStatus] = useState(policy?.lastResult ?? "not requested");
@@ -67,8 +68,8 @@ export function WalletPanel({ connected = false, funded = false, jobId, policy, 
 
       const result = `ERC-7715 permission request succeeded${account ? ` for ${account}` : ""}.`;
       setDelegationStatus(result);
-      if (jobId) {
-        const job = await updateDemoDelegation(jobId, {
+      if (jobId && buyerToken) {
+        const job = await updateDemoDelegation(jobId, buyerToken, {
           mode: "metamask-delegation",
           status: "granted",
           requestor: account,
@@ -79,8 +80,8 @@ export function WalletPanel({ connected = false, funded = false, jobId, policy, 
     } catch (error) {
       const result = error instanceof Error ? error.message : "delegation request failed";
       setDelegationStatus(result);
-      if (jobId) {
-        const job = await updateDemoDelegation(jobId, {
+      if (jobId && buyerToken) {
+        const job = await updateDemoDelegation(jobId, buyerToken, {
           mode: "metamask-delegation",
           status: "rejected",
           requestor: account,
@@ -99,7 +100,7 @@ export function WalletPanel({ connected = false, funded = false, jobId, policy, 
       </p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
         <button className="button" onClick={handleConnect} type="button">Connect MetaMask</button>
-        <button className="button" disabled={!jobId} onClick={handleDelegationRequest} type="button">
+        <button className="button" disabled={!jobId || !buyerToken} onClick={handleDelegationRequest} type="button">
           Request advanced permission
         </button>
       </div>

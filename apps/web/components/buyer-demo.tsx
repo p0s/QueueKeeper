@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import type { BuyerJobFormInput, QueueJobView, QueueStageKey } from "@queuekeeper/shared";
 import {
-  createOrUpdateDemoJob,
-  releaseDemoStage,
+  approveDemoStage,
+  createAndPostJob,
+  disputeDemoStage,
+  fetchProofBundle,
   requestPlannerPreview
 } from "../lib/agent-client";
 import { createLiveJob, releaseLiveStage } from "../lib/chain-client";
 import { buildTxExplorerLinks } from "../lib/explorer";
+import { getBuyerToken, setBuyerToken } from "../lib/job-session";
 import { getCachedOnchainJobId, getCachedTxHashes, rememberTxHash, setCachedOnchainJobId } from "../lib/live-chain-cache";
 import { ExplorerPanel } from "./explorer-panel";
 import { JobTimeline } from "./job-timeline";
@@ -31,11 +34,10 @@ type PlannerState = {
 
 type FormErrors = Partial<Record<keyof BuyerJobFormInput, string>>;
 
-const releaseStages: QueueStageKey[] = ["scout", "arrival", "heartbeat", "completion"];
-
 export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
   const [form, setForm] = useState<BuyerJobFormInput>(initialDraft);
   const [job, setJob] = useState<QueueJobView | null>(initialJob);
+  const [buyerToken, setBuyerTokenState] = useState<string | null>(null);
   const [plannerState, setPlannerState] = useState<PlannerState>({
     loading: false,
     selectedRunnerAddress: initialJob?.selectedRunnerAddress ?? initialDraft.selectedRunnerAddress
@@ -45,16 +47,19 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
   const [sendLiveTx, setSendLiveTx] = useState(false);
   const [onchainJobId, setOnchainJobId] = useState<string | null>(null);
   const [cachedTxHashes, setCachedTxHashes] = useState<Record<string, string>>({});
+  const [selectedProofBundle, setSelectedProofBundle] = useState<Awaited<ReturnType<typeof fetchProofBundle>> | null>(null);
 
   useEffect(() => {
     if (!job?.id) {
       setOnchainJobId(null);
       setCachedTxHashes({});
+      setBuyerTokenState(null);
       return;
     }
 
     setOnchainJobId(getCachedOnchainJobId(job.id));
     setCachedTxHashes(getCachedTxHashes(job.id));
+    setBuyerTokenState(getBuyerToken(job.id));
   }, [job?.id]);
 
   function updateForm<K extends keyof BuyerJobFormInput>(key: K, value: BuyerJobFormInput[K]) {
@@ -77,6 +82,8 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
     if (form.heartbeatFeeUsd <= 0) nextErrors.heartbeatFeeUsd = "Heartbeat fee must be positive.";
     if (form.completionFeeUsd <= 0) nextErrors.completionFeeUsd = "Completion fee must be positive.";
     if (form.expiresInMinutes < 15) nextErrors.expiresInMinutes = "Use at least 15 minutes.";
+    if ((form.heartbeatCount ?? 3) < 1) nextErrors.heartbeatCount = "At least one heartbeat is required.";
+    if ((form.heartbeatIntervalSeconds ?? 300) < 60) nextErrors.heartbeatIntervalSeconds = "Use at least 60 seconds.";
 
     const stagedTotal = form.scoutFeeUsd + form.arrivalFeeUsd + form.heartbeatFeeUsd + form.completionFeeUsd;
     if (stagedTotal > form.maxSpendUsd) {
@@ -139,13 +146,16 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
 
     setStatusMessage("Creating or updating the demo job…");
     try {
-      const nextJob = await createOrUpdateDemoJob({
+      const created = await createAndPostJob({
         ...validForm,
-        id: job?.id ?? validForm.id,
+        mode: validForm.mode ?? "DIRECT_DISPATCH",
         plannerPreview: validForm.plannerPreview,
         selectedRunnerAddress: plannerState.selectedRunnerAddress ?? validForm.selectedRunnerAddress
-      });
+      }, `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      const nextJob = created.job;
       setJob(nextJob);
+      setBuyerTokenState(created.buyerToken);
+      setBuyerToken(nextJob.id, created.buyerToken);
       setForm((current) => ({
         ...current,
         id: nextJob.id,
@@ -173,8 +183,8 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
     }
   }
 
-  async function handleRelease(stageKey: QueueStageKey) {
-    if (!job) {
+  async function handleRelease(stageId: string, stageKey: QueueStageKey) {
+    if (!job || !buyerToken) {
       setStatusMessage("Fund a demo job before releasing payout stages.");
       return;
     }
@@ -194,14 +204,30 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
         }
       }
 
-      const nextJob = await releaseDemoStage(job.id, {
-        stageKey,
+      const nextJob = await approveDemoStage(job.id, {
+        buyerToken,
+        stageId,
         txHash
       });
       setJob(nextJob);
-      setStatusMessage(`${nextJob.stages.find((stage) => stage.key === stageKey)?.label} payout released.`);
+      setStatusMessage(`${nextJob.stages.find((stage) => stage.stageId === stageId)?.label} payout released.`);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Stage release failed.");
+    }
+  }
+
+  async function handleDispute(stageId: string) {
+    if (!job || !buyerToken) {
+      setStatusMessage("Buyer token missing for dispute action.");
+      return;
+    }
+
+    try {
+      const nextJob = await disputeDemoStage(job.id, buyerToken, stageId, "Buyer disputed this stage from the dashboard.");
+      setJob(nextJob);
+      setStatusMessage(`Stage ${stageId} moved into dispute.`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Dispute failed.");
     }
   }
 
@@ -237,6 +263,17 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
             {formErrors.coarseArea ? <span className="error">{formErrors.coarseArea}</span> : null}
           </label>
           <label className="field">
+            <span>Dispatch mode</span>
+            <select className="input" value={form.mode ?? "DIRECT_DISPATCH"} onChange={(event) => updateForm("mode", event.target.value as BuyerJobFormInput["mode"])}>
+              <option value="DIRECT_DISPATCH">Direct dispatch</option>
+              <option value="VERIFIED_POOL">Verified pool</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Rough timing window</span>
+            <input className="input" value={form.timingWindow ?? "Within the next 2 hours"} onChange={(event) => updateForm("timingWindow", event.target.value)} />
+          </label>
+          <label className="field">
             <span>Exact destination</span>
             <textarea
               className="textarea"
@@ -248,6 +285,18 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
           <label className="field">
             <span>Hidden notes / fallback rules</span>
             <textarea className="textarea" value={form.hiddenNotes} onChange={(event) => updateForm("hiddenNotes", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Private fallback instructions</span>
+            <textarea className="textarea" value={form.privateFallbackInstructions ?? ""} onChange={(event) => updateForm("privateFallbackInstructions", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Sensitive buyer preferences</span>
+            <textarea className="textarea" value={form.sensitiveBuyerPreferences ?? ""} onChange={(event) => updateForm("sensitiveBuyerPreferences", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Handoff secret</span>
+            <input className="input" value={form.handoffSecret ?? ""} onChange={(event) => updateForm("handoffSecret", event.target.value)} />
           </label>
           <div className="stage-row">
             <label className="field">
@@ -279,6 +328,16 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
               <span>Expires in minutes</span>
               <input className="input" inputMode="numeric" type="number" value={form.expiresInMinutes} onChange={(event) => updateForm("expiresInMinutes", Number(event.target.value))} />
               {formErrors.expiresInMinutes ? <span className="error">{formErrors.expiresInMinutes}</span> : null}
+            </label>
+            <label className="field">
+              <span>Heartbeat count</span>
+              <input className="input" inputMode="numeric" type="number" value={form.heartbeatCount ?? 3} onChange={(event) => updateForm("heartbeatCount", Number(event.target.value))} />
+              {formErrors.heartbeatCount ? <span className="error">{formErrors.heartbeatCount}</span> : null}
+            </label>
+            <label className="field">
+              <span>Heartbeat interval (seconds)</span>
+              <input className="input" inputMode="numeric" type="number" value={form.heartbeatIntervalSeconds ?? 300} onChange={(event) => updateForm("heartbeatIntervalSeconds", Number(event.target.value))} />
+              {formErrors.heartbeatIntervalSeconds ? <span className="error">{formErrors.heartbeatIntervalSeconds}</span> : null}
             </label>
           </div>
           <label className="checkbox-row">
@@ -322,6 +381,7 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
         connected={true}
         funded={Boolean(job)}
         jobId={job?.id}
+        buyerToken={buyerToken}
         policy={job?.policy}
         onPolicyUpdated={setJob}
       />
@@ -335,24 +395,42 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
             Releases are sequential and require stored proof hashes. This MVP keeps a single heartbeat stage rather than repeated heartbeat releases.
           </p>
           <div className="grid">
-            {releaseStages.map((stageKey) => {
-              const stage = job.stages.find((entry) => entry.key === stageKey);
+            {job.stages.map((stage) => {
               if (!stage) return null;
 
               return (
-                <div key={stage.key} className="action-row">
+                <div key={stage.stageId ?? `${stage.key}-${stage.sequence}`} className="action-row">
                   <div>
                     <strong>{stage.label}</strong>
                     <div className="muted">Proof status: {stage.status}</div>
+                    <div className="muted">Auto-release: {stage.autoReleaseAt ?? "n/a"}</div>
                   </div>
-                  <button
-                    className="button"
-                    disabled={stage.released || stage.proofHash === "pending"}
-                    onClick={() => handleRelease(stage.key)}
-                    type="button"
-                  >
-                    Release {stage.label}
-                  </button>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <button
+                      className="button"
+                      disabled={stage.released || stage.proofHash === "pending" || !stage.stageId}
+                      onClick={() => stage.stageId && handleRelease(stage.stageId, stage.key)}
+                      type="button"
+                    >
+                      Approve {stage.label}
+                    </button>
+                    <button
+                      className="button"
+                      disabled={stage.proofHash === "pending" || !stage.stageId || stage.status === "disputed"}
+                      onClick={() => stage.stageId && handleDispute(stage.stageId)}
+                      type="button"
+                    >
+                      Dispute
+                    </button>
+                    <button
+                      className="button"
+                      disabled={!stage.proofBundleAvailable || !stage.stageId || !buyerToken}
+                      onClick={async () => stage.stageId && buyerToken && setSelectedProofBundle(await fetchProofBundle(job.id, stage.stageId, buyerToken))}
+                      type="button"
+                    >
+                      Review proof
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -361,6 +439,17 @@ export function BuyerDemo({ initialDraft, initialJob }: BuyerDemoProps) {
       ) : null}
 
       {job ? <JobTimeline job={job} /> : null}
+      {selectedProofBundle ? (
+        <section className="card">
+          <h3>Buyer proof review</h3>
+          <div className="muted">{selectedProofBundle.note ?? "No note provided."}</div>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: 12 }}>
+            {selectedProofBundle.media.map((media) => (
+              <img key={media.filename} alt={media.filename} src={media.dataUrl} style={{ width: "100%", borderRadius: 12 }} />
+            ))}
+          </div>
+        </section>
+      ) : null}
       {job ? <ExplorerPanel links={explorerLinks} /> : null}
     </main>
   );

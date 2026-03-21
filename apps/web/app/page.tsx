@@ -1,14 +1,15 @@
 import { ExplorerPanel } from "../components/explorer-panel";
 import { JobTimeline } from "../components/job-timeline";
 import { PolicyCard } from "../components/policy-card";
-import { getDefaultBuyerDraft, listDemoJobs } from "../lib/demo-store";
+import { getQueueKeeperCore } from "@queuekeeper/core";
+import { getDefaultBuyerFormInput } from "../lib/demo-data";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  const jobs = listDemoJobs("public");
+  const jobs = getQueueKeeperCore().listJobs("public").jobs;
   const snapshotJob = jobs[0];
-  const draft = getDefaultBuyerDraft();
+  const draft = getDefaultBuyerFormInput();
 
   return (
     <main className="container grid">

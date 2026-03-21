@@ -1,14 +1,17 @@
 import {
   type AcceptJobRequest,
   type AcceptJobResponse,
+  type ApproveStageRequest,
   type BuyerJobFormInput,
   type DelegationUpdateRequest,
   type PlannerAction,
+  type QueueProofBundleView,
   type QueueJobView,
   type QueueStageKey,
   type ReleaseStageRequest,
   type SubmitProofRequest
 } from "@queuekeeper/shared";
+import { QueueKeeperClient } from "@queuekeeper/sdk";
 import { buildPlannerInputFromBuyerForm } from "./demo-data";
 
 const agentBaseUrl = process.env.NEXT_PUBLIC_AGENT_BASE_URL?.trim() ?? "";
@@ -29,6 +32,19 @@ function buildAgentUrl(externalPath: string, demoPath: string) {
   return `${agentBaseUrl.replace(/\/+$/, "")}${externalPath}`;
 }
 
+function getApiBaseUrl() {
+  if (!agentBaseUrl) {
+    return "/api";
+  }
+  return `${agentBaseUrl.replace(/\/+$/, "")}`;
+}
+
+function getClient() {
+  return new QueueKeeperClient({
+    baseUrl: getApiBaseUrl()
+  });
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   const json = (await response.json()) as T & { reason?: string; error?: string };
   if (!response.ok) {
@@ -38,52 +54,32 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function requestPlannerPreview(form: BuyerJobFormInput): Promise<PlannerPreviewResult> {
-  const response = await fetch(buildAgentUrl("/planner/decide", "/api/planner/decide"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(buildPlannerInputFromBuyerForm(form))
-  });
-
-  const json = await readJson<{
-    summary: PlannerPreviewResult;
-    meta?: { provider?: string; reason?: string };
-  }>(response);
+  const json = await getClient().previewPlanner(buildPlannerInputFromBuyerForm(form));
   return {
-    ...json.summary,
+    ...(json.summary as PlannerPreviewResult),
     provider: json.meta?.provider,
     providerReason: json.meta?.reason
   };
 }
 
-export async function createOrUpdateDemoJob(form: BuyerJobFormInput): Promise<QueueJobView> {
-  const response = await fetch("/api/jobs", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(form)
-  });
-
-  return readJson<QueueJobView>(response);
+export async function createAndPostJob(form: BuyerJobFormInput, idempotencyKey?: string): Promise<{ job: QueueJobView; buyerToken: string }> {
+  const client = getClient();
+  const draft = await client.createJobDraft(form, idempotencyKey);
+  const posted = await client.postJob(draft.job.id, draft.buyerToken, {});
+  return {
+    job: posted.job,
+    buyerToken: draft.buyerToken
+  };
 }
 
 export async function fetchDemoJob(jobId: string, viewer: "buyer" | "runner" | "public", revealToken?: string): Promise<QueueJobView> {
-  const query = new URLSearchParams({ viewer });
-  if (revealToken) {
-    query.set("revealToken", revealToken);
-  }
-
-  const response = await fetch(`/api/jobs/${jobId}?${query.toString()}`);
-  return readJson<QueueJobView>(response);
+  const response = await getClient().getJob(jobId, viewer, revealToken);
+  return response.job;
 }
 
 export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promise<AcceptJobResponse> {
   if (!agentBaseUrl) {
-    const response = await fetch("/api/jobs/accept", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    return readJson<AcceptJobResponse>(response);
+    return getClient().acceptJob(payload.jobId, payload);
   }
 
   const externalResponse = await fetch(buildAgentUrl("/jobs/accept", "/api/jobs/accept"), {
@@ -112,36 +108,31 @@ export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promis
 }
 
 export async function submitDemoProof(jobId: string, request: SubmitProofRequest, revealToken?: string): Promise<QueueJobView> {
-  const response = await fetch(`/api/jobs/${jobId}/proof`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ...request,
-      revealToken
-    })
-  });
-
-  return readJson<QueueJobView>(response);
+  const response = await getClient().submitProof(jobId, revealToken ?? "", request);
+  return response.job;
 }
 
-export async function releaseDemoStage(jobId: string, request: ReleaseStageRequest): Promise<QueueJobView> {
-  const response = await fetch(`/api/jobs/${jobId}/release`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(request)
-  });
-
-  return readJson<QueueJobView>(response);
+export async function fetchProofBundle(jobId: string, stageId: string, token: string) {
+  return getClient().getProofBundle(jobId, stageId, token);
 }
 
-export async function updateDemoDelegation(jobId: string, request: DelegationUpdateRequest): Promise<QueueJobView> {
-  const response = await fetch(`/api/jobs/${jobId}/delegation`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(request)
-  });
+export async function approveDemoStage(jobId: string, request: ApproveStageRequest): Promise<QueueJobView> {
+  const response = await getClient().approveStage(jobId, request);
+  return response.job;
+}
 
-  return readJson<QueueJobView>(response);
+export async function disputeDemoStage(jobId: string, buyerToken: string, stageId: string, reason: string): Promise<QueueJobView> {
+  const response = await getClient().disputeStage(jobId, {
+    buyerToken,
+    stageId,
+    reason
+  });
+  return response.job;
+}
+
+export async function updateDemoDelegation(jobId: string, buyerToken: string, request: DelegationUpdateRequest): Promise<QueueJobView> {
+  const response = await getClient().updateDelegation(jobId, buyerToken, request);
+  return response.job;
 }
 
 export function makeDefaultProofHash(stageKey: QueueStageKey, jobId: string) {

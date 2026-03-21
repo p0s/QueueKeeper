@@ -1,9 +1,9 @@
-import { listDemoJobs } from "../../lib/demo-store";
+import { getQueueKeeperCore } from "@queuekeeper/core";
 
 export const dynamic = "force-dynamic";
 
 export default function RunnerListPage() {
-  const jobs = listDemoJobs("public");
+  const jobs = getQueueKeeperCore().listJobs("public").jobs;
 
   return (
     <main className="container grid">

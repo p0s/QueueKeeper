@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { QueueJobView, QueueStageKey } from "@queuekeeper/shared";
 import {
+  fetchProofBundle,
   makeDefaultProofHash,
   requestRunnerAcceptance,
   submitDemoProof
@@ -14,8 +15,6 @@ import { ExplorerPanel } from "./explorer-panel";
 import { JobTimeline } from "./job-timeline";
 import { PolicyCard } from "./policy-card";
 import { VerificationCard } from "./verification-card";
-
-const proofStages: QueueStageKey[] = ["scout", "arrival", "heartbeat", "completion"];
 
 export function RunnerJobDemo({
   initialJob,
@@ -40,17 +39,24 @@ export function RunnerJobDemo({
   const [sendLiveTx, setSendLiveTx] = useState(false);
   const [onchainJobId, setOnchainJobId] = useState<string | null>(null);
   const [cachedTxHashes, setCachedTxHashes] = useState<Record<string, string>>({});
-  const [proofInputs, setProofInputs] = useState<Record<QueueStageKey, string>>({
-    scout: initialJob.stages.find((stage) => stage.key === "scout")?.proofHash === "pending" ? "" : initialJob.stages.find((stage) => stage.key === "scout")?.proofHash ?? "",
-    arrival: initialJob.stages.find((stage) => stage.key === "arrival")?.proofHash === "pending" ? "" : initialJob.stages.find((stage) => stage.key === "arrival")?.proofHash ?? "",
-    heartbeat: initialJob.stages.find((stage) => stage.key === "heartbeat")?.proofHash === "pending" ? "" : initialJob.stages.find((stage) => stage.key === "heartbeat")?.proofHash ?? "",
-    completion: initialJob.stages.find((stage) => stage.key === "completion")?.proofHash === "pending" ? "" : initialJob.stages.find((stage) => stage.key === "completion")?.proofHash ?? ""
-  });
+  const [proofInputs, setProofInputs] = useState<Record<string, string>>({});
+  const [proofNotes, setProofNotes] = useState<Record<string, string>>({});
+  const [proofFiles, setProofFiles] = useState<Record<string, File[]>>({});
+  const [selectedBundle, setSelectedBundle] = useState<Awaited<ReturnType<typeof fetchProofBundle>> | null>(null);
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
     setCachedTxHashes(getCachedTxHashes(jobId));
   }, [jobId]);
+
+  function arrayBufferToBase64(buffer: ArrayBuffer) {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+  }
 
   async function handleAccept() {
     setAcceptState("Checking verification gate…");
@@ -94,30 +100,40 @@ export function RunnerJobDemo({
     }
   }
 
-  async function handleProofSubmit(stageKey: QueueStageKey) {
-    const proofHash = proofInputs[stageKey] || makeDefaultProofHash(stageKey, jobId);
+  async function handleProofSubmit(stageId: string, stageKey: QueueStageKey, sequence?: number) {
+    const proofHash = proofInputs[stageId] || makeDefaultProofHash(stageKey, `${jobId}-${sequence ?? 1}`);
     let txHash: string | undefined;
 
     if (sendLiveTx && onchainJobId) {
       try {
         const liveResult = await submitLiveProof(onchainJobId, stageKey, proofHash);
         txHash = liveResult.txHash;
-        rememberTxHash(jobId, `proof:${stageKey}`, txHash);
-        setCachedTxHashes((current) => ({ ...current, [`proof:${stageKey}`]: txHash as string }));
+        rememberTxHash(jobId, `proof:${stageId}`, txHash);
+        setCachedTxHashes((current) => ({ ...current, [`proof:${stageId}`]: txHash as string }));
       } catch (error) {
         setAcceptState(`Live ${stageKey} proof failed, continuing with the demo fallback: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
     try {
+      const media = await Promise.all((proofFiles[stageId] ?? []).map(async (file) => ({
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        base64: arrayBufferToBase64(await file.arrayBuffer())
+      })));
       const nextJob = await submitDemoProof(jobId, {
+        stageId,
         stageKey,
+        sequence,
         proofHash,
+        note: proofNotes[stageId] ?? "",
+        buyerVisibleSummary: proofNotes[stageId] ?? "",
+        media,
         txHash
       }, revealToken);
       setJob(nextJob);
-      setProofInputs((current) => ({ ...current, [stageKey]: proofHash }));
-      setAcceptState(`${nextJob.stages.find((stage) => stage.key === stageKey)?.label} proof stored.`);
+      setProofInputs((current) => ({ ...current, [stageId]: proofHash }));
+      setAcceptState(`${nextJob.stages.find((stage) => stage.stageId === stageId)?.label} proof stored.`);
     } catch (error) {
       setAcceptState(error instanceof Error ? error.message : String(error));
     }
@@ -127,10 +143,10 @@ export function RunnerJobDemo({
     ...job.explorerLinks,
     ...buildTxExplorerLinks([
       { label: "Live accept tx", txHash: cachedTxHashes.acceptJob },
-      { label: "Live scout proof tx", txHash: cachedTxHashes["proof:scout"] },
-      { label: "Live arrival proof tx", txHash: cachedTxHashes["proof:arrival"] },
-      { label: "Live heartbeat proof tx", txHash: cachedTxHashes["proof:heartbeat"] },
-      { label: "Live completion proof tx", txHash: cachedTxHashes["proof:completion"] }
+      ...job.stages.map((stage) => ({
+        label: `Live ${stage.label} proof tx`,
+        txHash: stage.stageId ? cachedTxHashes[`proof:${stage.stageId}`] : undefined
+      }))
     ])
   ];
 
@@ -208,27 +224,71 @@ export function RunnerJobDemo({
       </section>
 
       <section className="card">
-        <h2>Submit proof hashes</h2>
+        <h2>Submit encrypted proof bundles</h2>
         <p className="muted">
-          Scout, arrival, heartbeat, and completion hashes are stored in the demo backend timeline. If a live onchain job id is cached, the same action can also try the real contract write.
+          Each stage accepts a proof hash plus optional encrypted image bundle. Heartbeats can repeat, and the buyer can review the decrypted bundle inside the app.
         </p>
         <div className="grid">
-          {proofStages.map((key) => (
-            <div key={key} className="grid" style={{ gap: 8 }}>
+          {job.stages.map((stage) => (
+            <div key={stage.stageId ?? `${stage.key}-${stage.sequence}`} className="grid" style={{ gap: 8 }}>
               <label className="field">
-                <span>{key} proof hash</span>
+                <span>{stage.label} proof hash</span>
                 <input
                   className="input"
-                  value={proofInputs[key]}
-                  onChange={(event) => setProofInputs((current) => ({ ...current, [key]: event.target.value }))}
-                  placeholder={`0x ${key} proof hash`}
+                  value={proofInputs[stage.stageId ?? stage.key] ?? ""}
+                  onChange={(event) => setProofInputs((current) => ({ ...current, [stage.stageId ?? stage.key]: event.target.value }))}
+                  placeholder={`0x ${stage.key} proof hash`}
                 />
               </label>
-              <button className="button" onClick={() => handleProofSubmit(key)} type="button">
-                Submit {job.stages.find((stage) => stage.key === key)?.label ?? key} proof hash
+              <label className="field">
+                <span>Buyer-visible proof note</span>
+                <textarea
+                  className="textarea"
+                  value={proofNotes[stage.stageId ?? stage.key] ?? ""}
+                  onChange={(event) => setProofNotes((current) => ({ ...current, [stage.stageId ?? stage.key]: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Image proofs</span>
+                <input
+                  className="input"
+                  multiple
+                  onChange={(event) => setProofFiles((current) => ({ ...current, [stage.stageId ?? stage.key]: Array.from(event.target.files ?? []) }))}
+                  type="file"
+                />
+              </label>
+              <button className="button" onClick={() => handleProofSubmit(stage.stageId ?? stage.key, stage.key, stage.sequence)} type="button">
+                Submit {stage.label} bundle
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Review proof bundle</h2>
+        <div className="grid">
+          {job.stages.filter((stage) => stage.proofBundleAvailable && stage.stageId).map((stage) => (
+            <button
+              key={stage.stageId}
+              className="button"
+              onClick={async () => revealToken && stage.stageId && setSelectedBundle(await fetchProofBundle(jobId, stage.stageId, revealToken))}
+              type="button"
+            >
+              Open {stage.label} bundle
+            </button>
+          ))}
+          {selectedBundle ? (
+            <div className="card">
+              <strong>{selectedBundle.stageKey} bundle</strong>
+              <div className="muted" style={{ marginTop: 8 }}>{selectedBundle.note ?? "No note provided."}</div>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: 12 }}>
+                {selectedBundle.media.map((media) => (
+                  <img key={media.filename} alt={media.filename} src={media.dataUrl} style={{ width: "100%", borderRadius: 12 }} />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
