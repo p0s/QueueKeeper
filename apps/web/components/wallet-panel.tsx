@@ -22,6 +22,7 @@ export function WalletPanel({ connected = false, funded = false, jobId, buyerTok
   const [status, setStatus] = useState(connected ? "connected" : "not connected");
   const [account, setAccount] = useState<string | null>(null);
   const [delegationStatus, setDelegationStatus] = useState(policy?.lastResult ?? "not requested");
+  const shortAccount = account ? `${account.slice(0, 8)}…${account.slice(-6)}` : "none";
 
   useEffect(() => {
     setDelegationStatus(policy?.lastResult ?? "not requested");
@@ -94,25 +95,30 @@ export function WalletPanel({ connected = false, funded = false, jobId, buyerTok
 
   return (
     <section className="card">
-      <h3>Wallet connect + delegation</h3>
-      <p className="muted">
-        QueueKeeper is wired for MetaMask Smart Accounts / Advanced Permissions. The live-compatible request path preserves the same policy shape as the fallback: spend cap, expiry, token allowlist, contract allowlist, and job binding.
+      <span className="eyebrow">Wallet rail</span>
+      <h3 className="section-title">Connect wallet and capture delegation</h3>
+      <p className="muted section-copy">
+        QueueKeeper keeps the permission boundary visible: spend cap, expiry, token, contract, and job binding. The job still works in fallback mode if a live permission request is unavailable.
       </p>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-        <button className="button" onClick={handleConnect} type="button">Connect MetaMask</button>
+      <div className="cta-row" style={{ marginTop: 12 }}>
+        <button className="button secondary" onClick={handleConnect} type="button">Connect MetaMask</button>
         <button className="button" disabled={!jobId || !buyerToken} onClick={handleDelegationRequest} type="button">
           Request advanced permission
         </button>
       </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-        <div className="badge">Wallet: {status}</div>
-        <div className="badge">Account: {account ?? "none"}</div>
-        <div className="badge">Delegation: {delegationStatus}</div>
-        <div className="badge">Escrow: {funded ? "funded" : "not funded"}</div>
+      <div className="summary-grid" style={{ marginTop: 12 }}>
+        <div className="summary-tile"><span className="eyebrow">Wallet</span><strong>{status}</strong></div>
+        <div className="summary-tile"><span className="eyebrow">Account</span><strong className="mono-value">{shortAccount}</strong></div>
+        <div className="summary-tile"><span className="eyebrow">Delegation</span><strong>{policy?.status === "granted" ? "Active" : policy?.status === "requested" ? "Awaiting approval" : "Fallback mode"}</strong></div>
+        <div className="summary-tile"><span className="eyebrow">Escrow</span><strong>{funded ? "Funded" : "Not funded"}</strong></div>
       </div>
-      <p className="muted" style={{ marginTop: 12 }}>
-        If MetaMask Advanced Permissions / Delegation Toolkit is unavailable in the current browser context, QueueKeeper keeps the demo fallback policy record active instead of pretending delegation succeeded.
-      </p>
+      <details className="detail-disclosure">
+        <summary>Latest wallet result</summary>
+        <div className="muted" style={{ marginTop: 12 }}>{delegationStatus}</div>
+        <p className="muted" style={{ marginTop: 12 }}>
+          If MetaMask Advanced Permissions / Delegation Toolkit is unavailable in the current browser context, QueueKeeper keeps the demo fallback policy record active instead of pretending delegation succeeded.
+        </p>
+      </details>
     </section>
   );
 }

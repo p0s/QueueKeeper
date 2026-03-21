@@ -1,37 +1,67 @@
 import type { DelegationPolicyView } from "@queuekeeper/shared";
 
 export function PolicyCard({ policy }: { policy: DelegationPolicyView }) {
+  const shortValue = (value: string) => value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
   const statusText = policy.status === "granted"
-    ? "MetaMask delegation succeeded for this job."
+    ? "Delegation active"
     : policy.status === "requested"
-      ? "Permission request sent. It is not active until the wallet confirms."
+      ? "Awaiting wallet approval"
       : policy.status === "rejected"
-        ? "The last MetaMask permission request failed. The demo fallback record is still in force."
-        : "The demo fallback policy record is active. No live MetaMask delegation has succeeded yet.";
+        ? "Fallback mode"
+        : "Fallback mode";
+  const statusTone = policy.status === "granted" ? "success" : policy.status === "requested" ? "warning" : "info";
 
   return (
     <section className="card">
-      <h3>Bounded permission policy</h3>
-      <div className="muted" style={{ marginBottom: 12 }}>{statusText}</div>
-      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        <div><strong>Mode</strong><div className="muted">{policy.mode}</div></div>
-        <div><strong>Status</strong><div className="muted">{policy.status}</div></div>
-        <div><strong>Spend cap</strong><div className="muted">{policy.spendCap}</div></div>
-        <div><strong>Expiry</strong><div className="muted">{policy.expiry}</div></div>
-        <div><strong>Token</strong><div className="muted">{policy.approvedToken}</div></div>
-        <div><strong>Contract</strong><div className="muted">{policy.approvedContract}</div></div>
-        <div><strong>Job binding</strong><div className="muted">{policy.jobId}</div></div>
-      </div>
-      <div className="card" style={{ marginTop: 12, padding: 12 }}>
-        <strong>Latest result</strong>
-        <div className="muted" style={{ marginTop: 8 }}>{policy.lastResult}</div>
-        <div className="muted" style={{ marginTop: 8 }}>
-          Requestor: {policy.requestor ?? "none"} · updated: {policy.lastUpdatedAt ?? "not yet recorded"}
+      <span className="eyebrow">Delegation rail</span>
+      <h3 className="section-title">What your agent can spend</h3>
+      <p className="muted section-copy">{statusText}. The buyer remains in control of token, contract, expiry, and job scope.</p>
+      <div className="summary-grid">
+        <div className="summary-tile">
+          <span className="eyebrow">Cap</span>
+          <strong>{policy.spendCap}</strong>
+        </div>
+        <div className="summary-tile">
+          <span className="eyebrow">Expiry</span>
+          <strong>{policy.expiry}</strong>
+        </div>
+        <div className="summary-tile">
+          <span className="eyebrow">Token</span>
+          <strong className="mono-value">{shortValue(policy.approvedToken)}</strong>
+        </div>
+        <div className="summary-tile">
+          <span className="eyebrow">Status</span>
+          <strong>{statusText}</strong>
+          <span className={`chip ${statusTone}`}>{policy.status}</span>
         </div>
       </div>
-      <ul style={{ marginTop: 12 }}>
-        {policy.notes.map((note) => <li key={note}>{note}</li>)}
-      </ul>
+      <details className="detail-disclosure">
+        <summary>Advanced delegation details</summary>
+        <div className="stack" style={{ gap: 12, marginTop: 14 }}>
+          <div className="summary-grid">
+            <div className="summary-tile">
+              <span className="eyebrow">Mode</span>
+              <strong>{policy.mode}</strong>
+            </div>
+            <div className="summary-tile">
+              <span className="eyebrow">Job binding</span>
+              <strong className="mono-value">{policy.jobId}</strong>
+            </div>
+            <div className="summary-tile">
+              <span className="eyebrow">Contract</span>
+              <strong className="mono-value">{policy.approvedContract}</strong>
+            </div>
+            <div className="summary-tile" style={{ gridColumn: "1 / -1" }}>
+              <span className="eyebrow">Latest result</span>
+              <strong>{policy.lastResult}</strong>
+              <span className="muted">Requestor: {policy.requestor ?? "none"} · updated: {policy.lastUpdatedAt ?? "not yet recorded"}</span>
+            </div>
+          </div>
+          <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
+            {policy.notes.map((note) => <li key={note}>{note}</li>)}
+          </ul>
+        </div>
+      </details>
     </section>
   );
 }

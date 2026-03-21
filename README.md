@@ -17,6 +17,10 @@ QueueKeeper is a testnet-first product for private queue procurement: a buyer or
 - `apps/agent` now exposes a real `/v1` headless API on top of the same core.
 - `apps/web` exposes the same `/api/v1` API locally and uses the same planner/verification boundaries.
 - Buyer and runner surfaces now use real persisted job state, not static sample data.
+- The web UX is now dispatch-first and operations-led:
+  - homepage explains the private dispatch loop in one screen
+  - buyer dashboard prioritizes plan, fund, dispatch, and review
+  - runner job view is mobile-first with a single next action
 - Exact destination remains encrypted at rest and only becomes visible to an accepted runner with a valid reveal token.
 - Proof bundles can include encrypted image media, not just hashes.
 - Planner output changes the actual stage plan:
@@ -100,11 +104,11 @@ The durable API surface is available in the agent app and mirrored locally in th
 ## What is still simplified
 
 - The durable backend is SQLite plus encrypted filesystem object storage, not a managed hosted database/blob stack yet.
-- The current live chain contract path is still simpler than the full backend lifecycle model:
-  - onchain repeated heartbeat auto-release
-  - onchain dispute resolution
-  - onchain proof-bundle references
-  are not fully mirrored yet.
+- The contract layer now covers repeated heartbeats, auto-release, disputes, and expiry refunds, but the backend still owns:
+  - encrypted proof media storage
+  - buyer-side media review
+  - reveal-token privacy boundaries
+  - rich offchain receipts/timeline details
 - Self is load-bearing for acceptance, but the repo still needs a full QR/deeplink proof-generation frontend for a polished live Self experience.
 - Venice is live-capable and load-bearing when credentials and credits are available; it still falls back transparently when the provider is unavailable.
 - `ProofHashRegistry` remains outside the active happy path.
@@ -177,7 +181,7 @@ No secrets belong in git.
 - Headless API host: `apps/agent`
 - Local mirrored API host: `apps/web/app/api/v1`
 - Live planner status: the buyer preview shows `venice-live` vs `venice-fallback`
-- Live Self status: runner acceptance switches to the real proof-package fields automatically when `SELF_MODE=live`
+- Live Self status: runner acceptance now uses a QR/deeplink verification session flow when `SELF_MODE=live`
 
 ## Contracts and addresses
 
