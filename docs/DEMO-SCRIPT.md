@@ -5,20 +5,20 @@ Show the full trust loop in under 4 minutes.
 
 ## Steps
 1. Open homepage and say the one-liner.
-2. Open buyer flow and fill the controlled job form.
-3. Click planner preview and point out that the result is based on the current form state, while exact destination and notes stay private.
-4. Point to the bounded permission policy card: spend cap, expiry, token, contract, and job binding.
-5. Fund escrow to create a real demo job in the in-app backend.
-6. Open runner jobs on a narrow/mobile viewport and show the redacted list.
-7. Open a runner job, point to the verification badge, and accept the job.
-8. Call out that exact destination is revealed only after verified acceptance succeeds.
-9. Submit scout, arrival, heartbeat, and completion proof hashes.
-10. Return to the buyer view and release scout, arrival, heartbeat, and completion in order.
-11. End on the receipts timeline: timestamps, proof hashes, stage status, and explorer links.
+2. Open buyer flow and create a `DIRECT_DISPATCH` job with private exact destination, hidden notes, heartbeat count, and heartbeat interval.
+3. Run planner preview and call out that the result changes the actual stage plan.
+4. Point to the public vs private split and the bounded delegation card.
+5. Post the job and note that it now lives in the shared `/v1` durable backend.
+6. Open the runner path, start the Self verification session, and keep the exact destination hidden.
+7. Accept only after verification succeeds and show reveal data.
+8. Submit a scout proof with an encrypted image bundle.
+9. Return to the buyer view, review the decrypted proof bundle, and approve the scout stage.
+10. Submit arrival and repeated heartbeat proofs and show timeout/dispute state in the timeline.
+11. End on explorer links, receipts, and the `/v1` external-agent story.
 
 ## If asked about live chain state
 - show Foundry tests
 - show the shared escrow ABI export and deployed address file
 - toggle the optional live write path in the UI if a wallet is available
 - show explorer links for escrow, delegation policy, and any captured tx hashes
-- note that the current MVP supports one heartbeat stage and that `ProofHashRegistry` is not wired into the active flow yet
+- explain that the backend already models repeated heartbeats, disputes, and timeout auto-release even though the current contract happy path is still simpler
