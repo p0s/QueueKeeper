@@ -3,6 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
+  type AgentDecision,
+  type AgentDecisionLogView,
+  type AgentDecisionResponse,
+  type AgentIdentityView,
   queueStageLabels,
   type AcceptJobResponse,
   type ApiError,
@@ -12,7 +16,11 @@ import {
   type DelegationUpdateRequest,
   type DispatchJobRequest,
   type DisputeStageRequest,
+  type EvidenceItemView,
+  type EvidenceResponse,
   type PlannerAction,
+  type PlannerInput,
+  type PrincipalMode,
   type QueueDisputeStatus,
   type QueueJobMode,
   type QueueJobStatus,
@@ -29,6 +37,7 @@ import {
   type RevealDataResponse,
   type SelfVerificationResult,
   type SettleDisputeRequest,
+  type StopTaskRequest,
   type SubmitProofRequest
 } from "@queuekeeper/shared";
 import { getSupabaseStateConfig, hydrateSupabaseState, persistSupabaseState, type SupabaseStateConfig } from "./supabase";
@@ -63,6 +72,7 @@ type CoreJobRecord = {
   id: string;
   buyerTokenHash: string;
   buyerAddress: string | null;
+  principalMode: PrincipalMode;
   mode: QueueJobMode;
   title: string;
   coarseArea: string;
@@ -251,6 +261,7 @@ export class QueueKeeperCore {
         id TEXT PRIMARY KEY,
         buyer_token_hash TEXT NOT NULL,
         buyer_address TEXT,
+        principal_mode TEXT NOT NULL DEFAULT 'HUMAN',
         mode TEXT NOT NULL,
         title TEXT NOT NULL,
         coarse_area TEXT NOT NULL,
@@ -341,6 +352,7 @@ export class QueueKeeperCore {
         updated_at TEXT NOT NULL
       );
     `);
+    this.ensureColumn("jobs", "principal_mode", "TEXT NOT NULL DEFAULT 'HUMAN'");
     this.ensureColumn("verification_sessions", "access_token_hash", "TEXT");
   }
 
@@ -371,6 +383,7 @@ export class QueueKeeperCore {
 
   createJobDraft(input: BuyerJobFormInput & {
     mode?: QueueJobMode;
+    principalMode?: PrincipalMode;
     plannerAction?: PlannerAction;
     plannerReason?: string;
     plannerProvider?: string;
@@ -398,14 +411,15 @@ export class QueueKeeperCore {
       this.db.prepare(`
         INSERT INTO jobs (
           id, buyer_token_hash, buyer_address, mode, title, coarse_area, timing_window, verification_requirement,
+          principal_mode,
           planner_action, planner_reason, planner_provider, selected_runner_address, accepted_runner_address,
           runner_reveal_token_hash, dispatch_runner_address, secret_object_key, secret_digest, status, max_spend_cusd,
           heartbeat_interval_seconds, heartbeat_count, created_at, updated_at, posted_at, expires_at, dispute_status,
           delegation_json, chain_json
         ) VALUES (
-          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-          NULL, ?13, ?14, ?15, 'draft', ?16, ?17, ?18, ?19, ?19, NULL, ?20, 'none',
-          ?21, ?22
+          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL,
+          NULL, ?14, ?15, ?16, 'draft', ?17, ?18, ?19, ?20, ?20, NULL, ?21, 'none',
+          ?22, ?23
         )
       `).run(
         jobId,
@@ -416,6 +430,7 @@ export class QueueKeeperCore {
         input.coarseArea,
         input.timingWindow ?? "Within the next 2 hours",
         "SELF_VERIFIED",
+        input.principalMode ?? "HUMAN",
         plannerAction,
         plannerReason,
         plannerProvider,
@@ -468,6 +483,13 @@ export class QueueKeeperCore {
     });
   }
 
+  createTaskDraft(
+    input: Parameters<QueueKeeperCore["createJobDraft"]>[0],
+    idempotencyKey?: string
+  ) {
+    return this.createJobDraft(input, idempotencyKey);
+  }
+
   postJob(request: { jobId: string; buyerToken: string; onchainJobId?: string | null; txHash?: string | null; delegation?: DelegationUpdateRequest }) {
     const job = this.requireBuyerJob(request.jobId, request.buyerToken);
     if (job.status !== "draft" && job.status !== "funded") {
@@ -503,6 +525,10 @@ export class QueueKeeperCore {
     return this.getTimeline(request.jobId, "buyer", { buyerToken: request.buyerToken });
   }
 
+  postTask(request: Parameters<QueueKeeperCore["postJob"]>[0]) {
+    return this.postJob(request);
+  }
+
   dispatchJob(jobId: string, request: DispatchJobRequest) {
     const job = this.requireBuyerJob(jobId, request.buyerToken);
     this.db.prepare(`
@@ -518,6 +544,10 @@ export class QueueKeeperCore {
     return this.getTimeline(jobId, "buyer", { buyerToken: request.buyerToken });
   }
 
+  dispatchTask(taskId: string, request: DispatchJobRequest) {
+    return this.dispatchJob(taskId, request);
+  }
+
   listJobs(viewer: QueueViewerRole = "public") {
     const rows = this.db.prepare("SELECT * FROM jobs ORDER BY updated_at DESC").all() as CoreJobRow[];
     const jobs = rows.map((row) => this.mapJobRow(row));
@@ -527,6 +557,12 @@ export class QueueKeeperCore {
       : jobs;
     return {
       jobs: visibleJobs.map((job) => this.toView(this.getJobRecord(job.id), viewer))
+    };
+  }
+
+  listTasks(viewer: QueueViewerRole = "public") {
+    return {
+      tasks: this.listJobs(viewer).jobs
     };
   }
 
@@ -551,6 +587,10 @@ export class QueueKeeperCore {
     }
 
     return this.toView(job, viewer, auth);
+  }
+
+  getTask(taskId: string, viewer: QueueViewerRole, auth: AuthContext = {}) {
+    return this.getJob(taskId, viewer, auth);
   }
 
   acceptJob(jobId: string, runnerAddress: string, verification: SelfVerificationResult, txHash?: string): AcceptJobResponse {
@@ -602,6 +642,10 @@ export class QueueKeeperCore {
       },
       exactLocation: secret.exactLocation
     };
+  }
+
+  acceptTask(taskId: string, runnerAddress: string, verification: SelfVerificationResult, txHash?: string) {
+    return this.acceptJob(taskId, runnerAddress, verification, txHash);
   }
 
   createSelfVerificationSession(jobId: string, runnerAddress: string, origin: string): SelfVerificationSessionView {
@@ -761,6 +805,10 @@ export class QueueKeeperCore {
     return this.getTimeline(jobId, "runner", { revealToken });
   }
 
+  submitTaskProof(taskId: string, revealToken: string, request: SubmitProofRequest) {
+    return this.submitProof(taskId, revealToken, request);
+  }
+
   getProofBundle(jobId: string, stageId: string, auth: AuthContext): QueueProofBundleView | null {
     const job = this.getJobRecord(jobId);
     if (!this.hasBuyerAuth(job, auth.buyerToken) && !this.hasRunnerAuth(job, auth.revealToken)) {
@@ -813,6 +861,10 @@ export class QueueKeeperCore {
     return this.getTimeline(jobId, "buyer", { buyerToken: request.buyerToken });
   }
 
+  approveTaskStage(taskId: string, request: ApproveStageRequest) {
+    return this.approveStage(taskId, request);
+  }
+
   disputeStage(jobId: string, request: DisputeStageRequest) {
     const job = this.requireBuyerJob(jobId, request.buyerToken);
     const stage = this.getStageById(request.stageId);
@@ -834,6 +886,38 @@ export class QueueKeeperCore {
     });
 
     return this.getTimeline(jobId, "buyer", { buyerToken: request.buyerToken });
+  }
+
+  stopTask(taskId: string, request: StopTaskRequest) {
+    const job = this.requireBuyerJob(taskId, request.buyerToken);
+
+    this.db.prepare(`
+      UPDATE stages
+      SET status = CASE
+        WHEN status IN ('pending-proof', 'submitted', 'awaiting-release') THEN 'refunded'
+        ELSE status
+      END,
+      refunded_at = CASE
+        WHEN status IN ('pending-proof', 'submitted', 'awaiting-release') THEN ?2
+        ELSE refunded_at
+      END
+      WHERE job_id = ?1
+    `).run(taskId, nowIso());
+
+    this.db.prepare("UPDATE jobs SET status = 'cancelled', updated_at = ?2 WHERE id = ?1").run(taskId, nowIso());
+
+    this.recordEvent(
+      taskId,
+      "task.stopped",
+      "buyer",
+      job.buyerAddress,
+      request.note ?? "Principal stopped the task after the current verified increment.",
+      {
+        note: request.note ?? null
+      }
+    );
+
+    return this.getTimeline(taskId, "buyer", { buyerToken: request.buyerToken });
   }
 
   settleDispute(jobId: string, request: SettleDisputeRequest) {
@@ -909,30 +993,221 @@ export class QueueKeeperCore {
     };
   }
 
+  getTaskTimeline(taskId: string, viewer: QueueViewerRole, auth: AuthContext = {}) {
+    return this.getTimeline(taskId, viewer, auth);
+  }
+
+  getAgentIdentity(): AgentIdentityView {
+    return {
+      name: "QueueKeeper Planner",
+      role: "Private Scout-and-Hold Procurement Agent",
+      mode: "AGENT",
+      harness: "codex-cli",
+      model: process.env.VENICE_API_KEY ? "venice-live" : "queuekeeper-deterministic-planner",
+      walletAddress: process.env.CELO_SEPOLIA_TEST_ADDRESS ?? null,
+      ensName: null,
+      registrationUrl: process.env.NEXT_PUBLIC_SYNTHESIS_AGENT_REGISTRATION_URL ?? process.env.SYNTHESIS_AGENT_REGISTRATION_URL ?? null,
+      receiptPolicy: "Pay only for the next verified increment, never for the whole promise.",
+      spendPolicy: "Bounded by task scope, token, expiry, and stage budget.",
+      safetySummary: [
+        "Secrets stay private until acceptance and authorization checks pass.",
+        "The agent can recommend continue, stop, or escalate, but cannot exceed the delegated spend boundary.",
+        "Every stage produces receipts and onchain links where available."
+      ]
+    };
+  }
+
+  getAgentDecisionContext(taskId: string, buyerToken: string): PlannerInput {
+    const job = this.requireBuyerJob(taskId, buyerToken);
+    const secret = this.objectStore.readJson<QueueSecretPayload>(job.secretObjectKey);
+    const stages = this.getStages(taskId);
+    const pendingStage = stages.find((stage) => stage.status === "pending-proof");
+
+    return {
+      urgency: pendingStage?.key === "completion"
+        ? "high"
+        : job.heartbeatIntervalSeconds <= 180
+          ? "high"
+          : job.heartbeatIntervalSeconds <= 300
+            ? "medium"
+            : "low",
+      scoutFee: stages.find((stage) => stage.key === "scout")?.amountCusd ?? 0,
+      arrivalFee: stages.find((stage) => stage.key === "arrival")?.amountCusd ?? 0,
+      heartbeatFee: stages.find((stage) => stage.key === "heartbeat")?.amountCusd ?? 0,
+      completionBonus: stages.find((stage) => stage.key === "completion")?.amountCusd ?? 0,
+      maxBudget: job.maxSpendCusd,
+      hiddenExactLocation: secret.exactLocation,
+      hiddenNotes: secret.hiddenNotes,
+      privateFallbackInstructions: secret.privateFallbackInstructions,
+      waitingToleranceMinutes: Math.max(5, Math.floor(job.heartbeatIntervalSeconds / 60)),
+      mode: job.mode,
+      candidates: [
+        {
+          address: job.acceptedRunnerAddress ?? job.selectedRunnerAddress ?? "0xa11ce0000000000000000000000000000000001",
+          score: job.acceptedRunnerAddress ? 95 : 88,
+          verifiedHuman: Boolean(job.acceptedRunnerAddress || job.selectedRunnerAddress),
+          etaMinutes: pendingStage?.key === "scout" ? 6 : 2
+        }
+      ]
+    };
+  }
+
+  logAgentDecision(
+    taskId: string,
+    buyerToken: string,
+    decision: { action: AgentDecision; reason: string; provider?: string | null; plannerAction?: PlannerAction | null }
+  ): AgentDecisionResponse {
+    const job = this.requireBuyerJob(taskId, buyerToken);
+    this.recordEvent(taskId, "agent.decision", "planner", job.buyerAddress, decision.reason, {
+      action: decision.action,
+      plannerAction: decision.plannerAction ?? null,
+      provider: decision.provider ?? null
+    });
+
+    return {
+      task: this.getTask(taskId, "buyer", { buyerToken }),
+      decision: {
+        action: decision.action,
+        reason: decision.reason,
+        provider: decision.provider ?? undefined
+      },
+      log: this.getAgentLog(taskId, buyerToken).log
+    };
+  }
+
+  getAgentLog(taskId: string, buyerToken: string) {
+    const timeline = this.getTimeline(taskId, "buyer", { buyerToken });
+    const log: AgentDecisionLogView[] = timeline.events.map((event) => ({
+      id: event.id,
+      taskId,
+      phase: event.type.startsWith("verification.")
+        ? "verify"
+        : event.type.startsWith("proof.")
+          ? "submit"
+          : event.type.startsWith("agent.")
+            ? "decide"
+            : event.type.startsWith("job.") || event.type.startsWith("task.")
+              ? "execute"
+              : "plan",
+      decision: event.payload?.action as AgentDecision | undefined,
+      summary: event.summary,
+      provider: typeof event.payload?.provider === "string" ? event.payload.provider : null,
+      createdAt: event.createdAt,
+      payload: event.payload
+    }));
+
+    return {
+      identity: this.getAgentIdentity(),
+      task: timeline.job,
+      log
+    };
+  }
+
+  getEvidence(): EvidenceResponse {
+    const contracts = this.buildExplorerLinks({ txHashes: {} });
+    const identity = this.getAgentIdentity();
+    const evidence: EvidenceItemView[] = [
+      {
+        id: "erc8004",
+        label: "Agent identity surface",
+        sponsor: "Protocol Labs",
+        status: identity.registrationUrl ? "live" : "partial",
+        summary: "Agent identity, logs, and spend boundaries are surfaced in-product.",
+        href: identity.registrationUrl ?? undefined
+      },
+      {
+        id: "venice",
+        label: "Private planner boundary",
+        sponsor: "Venice",
+        status: process.env.VENICE_API_KEY ? "live" : "partial",
+        summary: "Hidden task inputs remain private and affect the execution path."
+      },
+      {
+        id: "self",
+        label: "Verified acceptance gate",
+        sponsor: "Self",
+        status: process.env.SELF_MODE === "live" ? "live" : "partial",
+        summary: "Acceptance and reveal stay blocked until runner verification succeeds."
+      },
+      {
+        id: "metamask",
+        label: "Delegated spend policy",
+        sponsor: "MetaMask",
+        status: "partial",
+        summary: "Spend cap, expiry, contract, and token limits remain visible in the happy path."
+      },
+      {
+        id: "celo",
+        label: "Celo micropayment rail",
+        sponsor: "Celo",
+        status: "live",
+        summary: "Explorer-linked staged micropayment contracts anchor the onchain happy path.",
+        href: contracts[0]?.href
+      },
+      {
+        id: "arkhai",
+        label: "Agreement and obligation framing",
+        sponsor: "Arkhai",
+        status: "partial",
+        summary: "Staged commitments, receipts, and proof-linked transitions map cleanly onto obligation semantics."
+      },
+      {
+        id: "ens",
+        label: "ENS display layer",
+        sponsor: "ENS",
+        status: "partial",
+        summary: "Identity surfaces can resolve ENS names with clean short-address fallback."
+      },
+      {
+        id: "uniswap",
+        label: "Budget normalization swap path",
+        sponsor: "Uniswap",
+        status: "planned",
+        summary: "Stablecoin budget normalization is reserved for the next sponsor pass."
+      },
+      {
+        id: "x402",
+        label: "Paid external data sidecar",
+        sponsor: "Base / x402",
+        status: "planned",
+        summary: "The planner-side paid data path is reserved for the next sponsor pass."
+      }
+    ];
+
+    return {
+      identity,
+      deployedContracts: contracts,
+      evidence
+    };
+  }
+
   openApiDocument(baseUrl = "https://api.queuekeeper.local") {
     return {
       openapi: "3.1.0",
       info: {
-        title: "QueueKeeper API",
-        version: "0.1.0",
-        description: "Headless API for private queue dispatch, verification, encrypted proofs, and staged payouts."
+        title: "QueueKeeper Task API",
+        version: "0.2.0",
+        description: "Headless API for private scout-and-hold task procurement, agent decisions, and staged payouts."
       },
       servers: [{ url: baseUrl }],
       paths: {
-        "/v1/jobs/drafts": { post: { summary: "Create job draft" } },
+        "/v1/tasks/drafts": { post: { summary: "Create task draft" } },
         "/v1/planner/preview": { post: { summary: "Preview planner decision" } },
-        "/v1/jobs/{jobId}/post": { post: { summary: "Fund and post job" } },
-        "/v1/jobs": { get: { summary: "List redacted jobs" } },
-        "/v1/jobs/{jobId}": { get: { summary: "Fetch job detail" } },
-        "/v1/jobs/{jobId}/dispatch": { post: { summary: "Dispatch a job to a specific runner" } },
-        "/v1/jobs/{jobId}/accept": { post: { summary: "Accept a job after verification" } },
-        "/v1/jobs/{jobId}/reveal": { get: { summary: "Fetch authorized reveal data" } },
-        "/v1/jobs/{jobId}/proofs": { post: { summary: "Submit encrypted proof bundle" } },
-        "/v1/jobs/{jobId}/proofs/{stageId}": { get: { summary: "Fetch decrypted proof bundle" } },
-        "/v1/jobs/{jobId}/stages/{stageId}/approve": { post: { summary: "Approve payout stage" } },
-        "/v1/jobs/{jobId}/stages/{stageId}/dispute": { post: { summary: "Dispute payout stage" } },
-        "/v1/jobs/{jobId}/dispute/settle": { post: { summary: "Settle disputed stage" } },
-        "/v1/jobs/{jobId}/timeline": { get: { summary: "Fetch receipts timeline" } }
+        "/v1/tasks/{taskId}/post": { post: { summary: "Fund and post task" } },
+        "/v1/tasks": { get: { summary: "List redacted tasks" } },
+        "/v1/tasks/{taskId}": { get: { summary: "Fetch task detail" } },
+        "/v1/tasks/{taskId}/dispatch": { post: { summary: "Dispatch a task to a specific runner" } },
+        "/v1/tasks/{taskId}/accept": { post: { summary: "Accept a task after verification" } },
+        "/v1/tasks/{taskId}/reveal": { get: { summary: "Fetch authorized reveal data" } },
+        "/v1/tasks/{taskId}/proofs": { post: { summary: "Submit encrypted proof bundle" } },
+        "/v1/tasks/{taskId}/proofs/{stageId}": { get: { summary: "Fetch decrypted proof bundle" } },
+        "/v1/tasks/{taskId}/stages/{stageId}/approve": { post: { summary: "Approve payout stage" } },
+        "/v1/tasks/{taskId}/stages/{stageId}/dispute": { post: { summary: "Dispute payout stage" } },
+        "/v1/tasks/{taskId}/stop": { post: { summary: "Stop the task after the current verified increment" } },
+        "/v1/tasks/{taskId}/agent/decide": { post: { summary: "Compute and log the next agent decision" } },
+        "/v1/tasks/{taskId}/agent/log": { get: { summary: "Fetch structured agent execution log" } },
+        "/v1/tasks/{taskId}/timeline": { get: { summary: "Fetch receipts timeline" } },
+        "/v1/evidence": { get: { summary: "Fetch sponsor evidence and contract receipts" } }
       }
     };
   }
@@ -1001,6 +1276,7 @@ export class QueueKeeperCore {
     const directCount = this.db.prepare("SELECT COUNT(*) as count FROM jobs WHERE mode = 'DIRECT_DISPATCH'").get() as { count: number };
     if (directCount.count === 0) {
       const draft = this.createJobDraft({
+        principalMode: "AGENT",
         mode: "DIRECT_DISPATCH",
         title: "Conference merch queue hold",
         coarseArea: "Moscone West / Howard St",
@@ -1035,6 +1311,7 @@ export class QueueKeeperCore {
     const poolCount = this.db.prepare("SELECT COUNT(*) as count FROM jobs WHERE mode = 'VERIFIED_POOL'").get() as { count: number };
     if (poolCount.count === 0) {
       const poolDraft = this.createJobDraft({
+        principalMode: "HUMAN",
         mode: "VERIFIED_POOL",
         title: "Cafe opening queue scout",
         coarseArea: "Mission / Valencia",
@@ -1119,6 +1396,9 @@ export class QueueKeeperCore {
 
   private refreshJobStatus(jobId: string) {
     const job = this.getJobRecord(jobId);
+    if (job.status === "cancelled" || job.status === "refunded") {
+      return;
+    }
     const stages = this.getStages(jobId);
     const openDispute = stages.some((stage) => stage.status === "disputed");
     const allReleased = stages.length > 0 && stages.every((stage) => ["approved", "auto-released", "settled"].includes(stage.status));
@@ -1169,6 +1449,7 @@ export class QueueKeeperCore {
     return {
       id: job.id,
       mode: job.mode,
+      principalMode: job.principalMode,
       title: job.title,
       coarseArea: job.coarseArea,
       timingWindow: job.timingWindow,
@@ -1219,6 +1500,8 @@ export class QueueKeeperCore {
         selectedRunnerAddress: canReveal ? job.selectedRunnerAddress ?? undefined : undefined
       },
       plannerProvider: job.plannerProvider,
+      procurementThesis: "Pay only for the next verified increment, never for the whole promise.",
+      agentDecisionSummary: this.getLatestAgentDecisionSummary(job.id),
       disputeStatus: job.disputeStatus,
       heartbeatIntervalSeconds: job.heartbeatIntervalSeconds,
       heartbeatCount: job.heartbeatCount,
@@ -1370,6 +1653,7 @@ export class QueueKeeperCore {
       id: String(row.id),
       buyerTokenHash: String(row.buyer_token_hash),
       buyerAddress: row.buyer_address ? String(row.buyer_address) : null,
+      principalMode: (row.principal_mode ? String(row.principal_mode) : "HUMAN") as PrincipalMode,
       mode: row.mode as QueueJobMode,
       title: String(row.title),
       coarseArea: String(row.coarse_area),
@@ -1431,6 +1715,24 @@ export class QueueKeeperCore {
       INSERT INTO events (id, job_id, event_type, actor_role, actor_address, summary, payload_json, created_at)
       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `).run(crypto.randomUUID(), jobId, eventType, actorRole, actorAddress, summary, JSON.stringify(payload), nowIso());
+  }
+
+  private getLatestAgentDecisionSummary(jobId: string) {
+    const row = this.db.prepare(`
+      SELECT summary, payload_json
+      FROM events
+      WHERE job_id = ?1 AND event_type = 'agent.decision'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(jobId) as { summary: string; payload_json: string } | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    const payload = parseJson<Record<string, unknown>>(row.payload_json);
+    const action = typeof payload.action === "string" ? payload.action : null;
+    return action ? `${action} · ${row.summary}` : row.summary;
   }
 
   private defaultReviewWindowSeconds(stageKey: QueueStageKey) {

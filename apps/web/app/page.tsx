@@ -1,108 +1,74 @@
-import { ExplorerPanel } from "../components/explorer-panel";
-import { JobTimeline } from "../components/job-timeline";
-import { PolicyCard } from "../components/policy-card";
 import { getQueueKeeperCore } from "@queuekeeper/core";
-import { getDefaultBuyerFormInput } from "../lib/demo-data";
+import { AgentIdentityCard } from "../components/agent-identity-card";
+import { TaskFeedBoard } from "../components/task-feed-board";
+import { getAgentIdentityManifest, procurementThesis } from "../lib/agent-manifest";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const jobs = (await getQueueKeeperCore()).listJobs("public").jobs;
-  const snapshotJob = jobs[0];
-  const draft = getDefaultBuyerFormInput();
-  const nextAction = snapshotJob?.stages.find((stage) => stage.status === "pending-proof" || stage.status === "submitted");
+  const tasks = (await getQueueKeeperCore()).listTasks("public").tasks;
+  const agentIdentity = getAgentIdentityManifest();
 
   return (
     <main className="container hero-shell">
       <div className="hero-grid">
         <section className="card hero-card fade-in">
-          <span className="badge-pill">Dispatch-first private queue operations</span>
+          <span className="badge-pill">QueueKeeper — Private Scout-and-Hold Procurement</span>
           <div className="stack" style={{ gap: 18 }}>
-            <h1 className="hero-headline">Privately dispatch a verified human to scout or hold your place in line.</h1>
+            <h1 className="hero-headline">Rent a human with bounded trust.</h1>
             <p className="hero-copy muted">
-              QueueKeeper keeps the destination encrypted, unlocks it only after verified acceptance, and releases cUSD stage by stage as proof arrives.
+              {procurementThesis}
             </p>
           </div>
           <div className="proof-strip fade-in">
             <div className="metric-card">
-              <span className="eyebrow">Privacy</span>
-              <strong>Private destination</strong>
-              <span className="muted">Exact location stays encrypted until an authorized runner accepts.</span>
+              <span className="eyebrow">Why this works</span>
+              <strong>Demand is uncertain up front</strong>
+              <span className="muted">QueueKeeper buys information first and commitment later.</span>
             </div>
             <div className="metric-card">
-              <span className="eyebrow">Verification</span>
-              <strong>Verified runner</strong>
-              <span className="muted">Self-backed acceptance gates who can see reveal data.</span>
+              <span className="eyebrow">Trust model</span>
+              <strong>Next verified increment only</strong>
+              <span className="muted">The principal can stop after any stage instead of paying for the full promise.</span>
             </div>
             <div className="metric-card">
-              <span className="eyebrow">Payouts</span>
-              <strong>Stage-based payout</strong>
-              <span className="muted">Scout, arrival, repeated heartbeats, and completion all reconcile separately.</span>
+              <span className="eyebrow">Agent role</span>
+              <strong>Escalate or stop</strong>
+              <span className="muted">The agent reasons privately about whether to continue scouting or move into hold mode.</span>
             </div>
           </div>
           <div className="cta-row fade-in">
-            <a className="button" href="/buyer">Create dispatch job</a>
-            <a className="button secondary" href="/runner">See runner flow</a>
-            {snapshotJob ? <a className="button secondary" href={`/runner/${snapshotJob.id}`}>Open live runner job</a> : null}
+            <a className="button" href="/agent">Enter Agent Mode</a>
+            <a className="button secondary" href="/human">Enter Human Mode</a>
+            <a className="button secondary" href="/tasks">Browse public tasks</a>
           </div>
         </section>
 
         <aside className="card alt fade-in">
-          <span className="eyebrow">Dispatch-first live loop</span>
-          <h2 className="section-title">Current operations snapshot</h2>
-          <div className="summary-grid">
-            <div className="summary-tile">
-              <span className="eyebrow">Mode</span>
-              <strong>{snapshotJob?.mode ?? "DIRECT_DISPATCH"}</strong>
-              <span className="muted">{snapshotJob?.title ?? draft.title}</span>
-            </div>
-            <div className="summary-tile">
-              <span className="eyebrow">Current stage</span>
-              <strong>{snapshotJob?.currentStage ?? "Draft template ready"}</strong>
-              <span className="muted">{snapshotJob?.status ?? "draft"}</span>
-            </div>
-            <div className="summary-tile">
-              <span className="eyebrow">Next action</span>
-              <strong>{nextAction?.label ?? "Post dispatch job"}</strong>
-              <span className="muted">{nextAction ? nextAction.status : "Buyer setup required"}</span>
-            </div>
-            <div className="summary-tile">
-              <span className="eyebrow">Payout rail</span>
-              <strong>{snapshotJob?.payoutSummary ?? `${draft.maxSpendUsd.toFixed(2)} cUSD reserved`}</strong>
-              <span className="muted">Celo stablecoin micropayments with explorer receipts.</span>
-            </div>
-          </div>
-          <div className="stack" style={{ gap: 10 }}>
-            {jobs.slice(0, 2).map((job) => (
-              <div key={job.id} className="metric-card">
-                <strong>{job.title}</strong>
-                <span className="muted">{job.coarseArea} · {job.status}</span>
-              </div>
-            ))}
-          </div>
+          <AgentIdentityCard compact identity={agentIdentity} />
         </aside>
       </div>
 
       <section className="stack fade-in">
         <div>
-          <span className="eyebrow">Trust rail</span>
-          <h2 className="section-title">Built for one crisp, verifiable loop</h2>
+          <span className="eyebrow">Mode select</span>
+          <h2 className="section-title">Choose the principal</h2>
         </div>
         <div className="trust-grid">
           <div className="card trust-card">
-            <span className="chip info">Delegation</span>
-            <strong>Bounded agent spend</strong>
-            <span className="muted">Spend cap, expiry, token, contract, and job binding stay explicit.</span>
+            <span className="chip info">Agent Mode</span>
+            <strong>Let the agent spend inside a hard boundary</strong>
+            <span className="muted">Private planner, bounded delegation, and execution logs make the agent a first-class economic actor.</span>
           </div>
           <div className="card trust-card">
-            <span className="chip success">Escrow</span>
-            <strong>Micropayments on proof</strong>
-            <span className="muted">Escrow holds the budget while proofs, approvals, and auto-release timers advance payout.</span>
+            <span className="chip success">Human Mode</span>
+            <strong>Direct principal control</strong>
+            <span className="muted">Use the same private task model directly without delegating the decision loop.</span>
           </div>
           <div className="card trust-card">
-            <span className="chip warning">Receipts</span>
-            <strong>Explainable timeline</strong>
-            <span className="muted">Every stage carries status, timestamps, proof references, and settlement outcomes.</span>
+            <span className="chip warning">Runner Mode</span>
+            <strong>Accept only what you can prove</strong>
+            <span className="muted">Verification gates reveal access, then each proof-backed increment becomes payable.</span>
           </div>
           <div className="card trust-card">
             <span className="chip danger">Privacy</span>
@@ -112,9 +78,13 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {snapshotJob ? <PolicyCard policy={snapshotJob.policy} /> : null}
-      {snapshotJob ? <JobTimeline job={snapshotJob} /> : null}
-      {snapshotJob ? <ExplorerPanel links={snapshotJob.explorerLinks} /> : null}
+      <section className="stack fade-in">
+        <div>
+          <span className="eyebrow">Public discovery</span>
+          <h2 className="section-title">Current task feed</h2>
+        </div>
+        <TaskFeedBoard tasks={tasks} />
+      </section>
     </main>
   );
 }

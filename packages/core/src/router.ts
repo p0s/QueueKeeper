@@ -1,5 +1,6 @@
 import type {
   AcceptJobVerificationPayload,
+  AgentDecision,
   ApproveStageRequest,
   BuyerJobFormInput,
   DisputeStageRequest,
@@ -57,6 +58,21 @@ function parseBuyerForm(body: BuyerJobFormInput, planner?: PlannerResult): Buyer
   };
 }
 
+function toAgentDecision(
+  task: { currentStage: string; stages: Array<{ key: string; status: string }> },
+  planner: PlannerResult
+): AgentDecision {
+  if (planner.summary.action === "abort") return "abort";
+  if (task.currentStage.toLowerCase().includes("complete")) return "complete";
+  if (task.currentStage.toLowerCase().includes("scout")) {
+    return planner.summary.action === "scout-only" ? "scout-again" : "escalate-to-hold";
+  }
+  if (task.stages.some((stage) => stage.key === "heartbeat" && stage.status === "pending-proof")) {
+    return "continue-hold";
+  }
+  return "complete";
+}
+
 export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRouterDeps) {
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/^\/api/, "");
@@ -66,6 +82,10 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
   try {
     if (request.method === "GET" && pathname === "/v1/openapi.json") {
       return json(200, core.openApiDocument(`${url.origin}/v1`));
+    }
+
+    if (request.method === "GET" && pathname === "/v1/evidence") {
+      return json(200, core.getEvidence());
     }
 
     if (request.method === "POST" && pathname === "/v1/internal/reconcile") {
@@ -89,7 +109,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       return json(200, await deps.plan(payload));
     }
 
-    if (request.method === "POST" && pathname === "/v1/jobs/drafts") {
+    if (request.method === "POST" && (pathname === "/v1/jobs/drafts" || pathname === "/v1/tasks/drafts")) {
       const payload = (await request.json()) as BuyerJobFormInput & { plannerInput?: PlannerInput };
       const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
       const planner = payload.plannerPreview
@@ -97,7 +117,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         : payload.plannerInput
           ? await deps.plan(payload.plannerInput)
           : undefined;
-      return json(200, core.createJobDraft(parseBuyerForm(payload, planner), idempotencyKey));
+      return json(200, core.createTaskDraft(parseBuyerForm(payload, planner), idempotencyKey));
     }
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && request.method === "POST" && segments.length === 3) {
@@ -127,18 +147,19 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       return json(200, response);
     }
 
-    if (request.method === "GET" && pathname === "/v1/jobs") {
+    if (request.method === "GET" && (pathname === "/v1/jobs" || pathname === "/v1/tasks")) {
       const viewer = (url.searchParams.get("viewer") as "public" | "buyer" | "runner" | null) ?? "public";
-      return json(200, core.listJobs(viewer));
+      const listed = pathname === "/v1/tasks" ? core.listTasks(viewer) : core.listJobs(viewer);
+      return json(200, listed);
     }
 
-    if (segments[0] === "v1" && segments[1] === "jobs" && segments[2]) {
+    if (segments[0] === "v1" && (segments[1] === "jobs" || segments[1] === "tasks") && segments[2]) {
       const jobId = segments[2];
       const bearer = readBearer(request);
 
       if (request.method === "GET" && segments.length === 3) {
         const viewer = (url.searchParams.get("viewer") as "public" | "buyer" | "runner" | null) ?? "public";
-        return json(200, core.getTimeline(jobId, viewer, {
+        return json(200, core.getTaskTimeline(jobId, viewer, {
           buyerToken: viewer === "buyer" ? bearer : undefined,
           revealToken: viewer === "runner" ? bearer : undefined
         }));
@@ -146,7 +167,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "post") {
         const payload = (await request.json()) as Record<string, unknown>;
-        const response = core.postJob({
+        const response = core.postTask({
           jobId,
           buyerToken: bearer ?? "",
           onchainJobId: (payload.onchainJobId as string | null | undefined) ?? null,
@@ -159,7 +180,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "dispatch") {
         const payload = (await request.json()) as DispatchJobRequest;
-        const response = core.dispatchJob(jobId, {
+        const response = core.dispatchTask(jobId, {
           buyerToken: bearer ?? "",
           runnerAddress: payload.runnerAddress
         });
@@ -201,7 +222,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
             verification
           });
         }
-        const response = core.acceptJob(jobId, payload.runnerAddress, verification, payload.txHash);
+        const response = core.acceptTask(jobId, payload.runnerAddress, verification, payload.txHash);
         await persistQueueKeeperCore(core);
         return json(200, response);
       }
@@ -212,7 +233,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "GET" && segments[3] === "timeline") {
         const viewer = (url.searchParams.get("viewer") as "public" | "buyer" | "runner" | null) ?? "public";
-        return json(200, core.getTimeline(jobId, viewer, {
+        return json(200, core.getTaskTimeline(jobId, viewer, {
           buyerToken: viewer === "buyer" ? bearer : undefined,
           revealToken: viewer === "runner" ? bearer : undefined
         }));
@@ -220,7 +241,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "proofs" && segments.length === 4) {
         const payload = await request.json();
-        const response = core.submitProof(jobId, bearer ?? "", payload as never);
+        const response = core.submitTaskProof(jobId, bearer ?? "", payload as never);
         await persistQueueKeeperCore(core);
         return json(200, response);
       }
@@ -234,7 +255,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "stages" && segments[4] && segments[5] === "approve") {
         const payload = (await request.json()) as Partial<ApproveStageRequest>;
-        const response = core.approveStage(jobId, {
+        const response = core.approveTaskStage(jobId, {
           ...payload,
           buyerToken: bearer ?? "",
           stageId: segments[4]
@@ -260,6 +281,34 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         });
         await persistQueueKeeperCore(core);
         return json(200, response);
+      }
+
+      if (request.method === "POST" && segments[3] === "stop") {
+        const payload = (await request.json()) as { note?: string };
+        const response = core.stopTask(jobId, {
+          buyerToken: bearer ?? "",
+          note: payload.note
+        });
+        await persistQueueKeeperCore(core);
+        return json(200, response);
+      }
+
+      if (request.method === "POST" && segments[3] === "agent" && segments[4] === "decide") {
+        const context = core.getAgentDecisionContext(jobId, bearer ?? "");
+        const planner = await deps.plan(context);
+        const task = core.getTask(jobId, "buyer", { buyerToken: bearer ?? "" });
+        const response = core.logAgentDecision(jobId, bearer ?? "", {
+          action: toAgentDecision(task, planner),
+          reason: planner.summary.reason,
+          provider: planner.meta?.provider ?? null,
+          plannerAction: planner.summary.action
+        });
+        await persistQueueKeeperCore(core);
+        return json(200, response);
+      }
+
+      if (request.method === "GET" && segments[3] === "agent" && segments[4] === "log") {
+        return json(200, core.getAgentLog(jobId, bearer ?? ""));
       }
 
       if (request.method === "POST" && segments[3] === "dispute" && segments[4] === "settle") {

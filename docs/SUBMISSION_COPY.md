@@ -1,30 +1,33 @@
 # Submission copy draft
 
 ## One liner
-QueueKeeper lets a buyer privately hire a verified runner to scout or hold a place in line, while staged escrow only releases money as proof hashes and buyer approvals arrive.
+QueueKeeper lets a human or agent principal privately procure scarce real-world access one verified micro-step at a time.
 
 ## Problem
 Real-world errands like queues are awkward for agents: users want help, but they do not want to reveal exact destinations too early, prepay strangers in full, or trust a generic labor platform to enforce staged commitments fairly.
 
 ## Solution
-QueueKeeper combines private planning, bounded spend permissions, verified runner gating, staged escrow, and proof-hash receipts. Buyers keep control, runners get paid as they make verifiable progress, and judges can inspect what happened without exposing raw private details.
+QueueKeeper combines private planning, bounded spend permissions, verified runner gating, staged task payouts, and proof-linked receipts. Principals keep control, runners get paid as they make verifiable progress, and judges can inspect what happened without exposing raw private details.
 
 ## What is live in the MVP
 - hosted Next.js app with built-in `/api/v1` product API
-- buyer create, post, review, approve, and dispute flow backed by stored state
+- Human Mode and Agent Mode task creation flows backed by stored state
+- task command center with public/private split, stage ladder, and receipts
 - mobile-first runner flow with verification, acceptance, reveal gating, and proof upload
-- exact location stays hidden from public job views until verified acceptance succeeds
+- exact location stays hidden from public task views until verified acceptance succeeds
 - scout / arrival / repeated heartbeat / completion proof submission and buyer-side payout controls
 - staged escrow contract with repeated heartbeat, timeout, dispute, and refund coverage in the contract test suite
 - live Venice planner path on the hosted app, with explicit fallback behavior if the provider is unavailable
 - optional wallet-backed live escrow writes through `viem`
 - bounded permission policy UI with persisted MetaMask permission results
+- root `agent.json` and `agent_log.json` artifacts plus an in-product sponsor evidence page
 
 ## What is still a fallback or mock
 - MetaMask delegation falls back to a bounded policy record when the permission request fails or is unavailable
 - the hosted product is still demo-grade rather than a production multi-tenant service
 - Self live verification still needs a final recorded real-device pass for submission
 - `ProofHashRegistry` is deployed but not in the active flow yet
+- Uniswap and Base/x402 sidecars are still reserved for the next sponsor pass
 
 ## Deployed contracts
 - Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`

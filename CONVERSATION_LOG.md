@@ -86,3 +86,14 @@
 - Agent removed legacy compatibility routes that bypassed the `/v1` auth model, hid reveal tokens from URLs, added auth to Self session reads, and reduced public exposure of runner assignment data.
 - Agent backed those changes with fresh validation across typecheck, lint, core tests, contract tests, and a new production deploy.
 - Result: the public app now better matches the stated privacy model and has a cleaner submission posture.
+
+## 2026-03-22 00:15–00:45 UTC
+- Human asked for a final submission-grade product push centered on a clearer agent story and stronger task framing.
+- Agent hard-cut over the public product language from jobs to tasks, introduced Agent Mode and Human Mode entrypoints, and added a dedicated Task Command Center plus Sponsor Evidence page.
+- Agent also added task-oriented `/v1` aliases, agent decision/log surfaces, and downloadable `agent.json` / `agent_log.json` artifacts.
+- Result: QueueKeeper now presents as a more complete scout-and-hold procurement system rather than a narrow demo dashboard.
+
+## 2026-03-22 00:45–00:50 UTC
+- Agent aligned the live deployment with the new task-first product shell and verified the hosted `/api/v1/tasks` surface plus root agent artifacts.
+- Agent also kept the earlier privacy hardening intact while introducing the new Agent Mode, Human Mode, and command-center pages.
+- Result: the hosted app now reflects the updated submission story and public task API.

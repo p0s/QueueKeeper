@@ -244,3 +244,24 @@ test("public list exposes verified-pool jobs and hides direct dispatch jobs", ()
   assert.ok(publicJobs.some((job) => job.title === "Pool listing"));
   assert.ok(!publicJobs.some((job) => job.title === "Direct only"));
 });
+
+test("task aliases expose the same core state", () => {
+  const core = createTestCore("tasks");
+  const draft = createDraft(core, { principalMode: "AGENT" });
+  core.postTask({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  const listed = core.listTasks("buyer").tasks;
+  assert.ok(listed.some((task) => task.id === draft.job.id));
+  assert.equal(core.getTask(draft.job.id, "buyer", { buyerToken: draft.buyerToken }).principalMode, "AGENT");
+});
+
+test("stopTask closes unreleased increments", () => {
+  const core = createTestCore("stop");
+  const draft = createDraft(core, { principalMode: "AGENT" });
+  core.postTask({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  const stopped = core.stopTask(draft.job.id, {
+    buyerToken: draft.buyerToken,
+    note: "Stop after scout-only value is enough."
+  });
+  assert.equal(stopped.job.status, "cancelled");
+  assert.ok(stopped.job.stages.every((stage) => ["refunded", "pending-proof"].includes(stage.status)));
+});

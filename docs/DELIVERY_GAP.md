@@ -4,6 +4,7 @@ The repo now ships a more product-like testnet backend loop:
 
 - durable `packages/core` state with SQLite + encrypted object storage
 - hosted Next.js app with built-in `/api/v1` product API
+- Agent Mode and Human Mode entrypoints
 - typed `packages/sdk`
 - shared `/v1` API in both `apps/agent` and `apps/web`
 - encrypted proof-bundle upload and buyer-side proof review
@@ -14,13 +15,17 @@ The repo now ships a more product-like testnet backend loop:
 - contracts compile and current Foundry suites pass
 - backend lifecycle tests pass in `packages/core`
 - legacy compatibility routes that bypassed the `/v1` auth model have been removed
+- task command center and sponsor evidence pages now exist in the web app
+- root `agent.json` and `agent_log.json` artifacts now ship with the app
 
 The remaining gaps are now specific and visible:
 
 - the hosted state path is still demo-grade and should be hardened further for multi-instance consistency before final submission
+- Synthesis/ERC-8004 registration details still need to be wired into the public agent identity surface
 - `ProofHashRegistry` is deployed but not wired into the active escrow flow
 - live Self verification now has hosted session and callback plumbing, but it still needs a final real-device submission recording pass
 - MetaMask delegation still depends on browser support and user approval for the true active path
+- Uniswap and Base/x402 sidecars are still not integrated into the live happy path
 - the submission package still needs final screenshots, cover art, and final hosted-flow verification
 
 These are now completion/polish gaps rather than basic “is there a product loop at all?” gaps.

@@ -66,14 +66,14 @@ export function RunnerJobDemo({
   const nextActionLabel = !job.acceptedRunnerAddress
     ? liveSelfMode
       ? selfSession?.status === "verified"
-        ? "Accept job"
+        ? "Accept task"
         : selfSession
           ? "Finish Self verification"
           : "Start verification"
-      : "Accept job"
+      : "Accept task"
     : nextProofStage
       ? `Submit ${nextProofStage.label}`
-      : "Job complete";
+      : "Task complete";
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
@@ -271,8 +271,8 @@ export function RunnerJobDemo({
                 }}
                 type="button"
               >
-                Start verification
-              </button>
+                    Start verification
+                  </button>
               {selfSession ? (
                 <SelfQrPanel
                   onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}

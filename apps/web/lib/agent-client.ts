@@ -1,9 +1,12 @@
 import type {
   AcceptJobRequest,
   AcceptJobResponse,
+  AgentDecisionResponse,
+  AgentLogResponse,
   ApproveStageRequest,
   BuyerJobFormInput,
   DelegationUpdateRequest,
+  EvidenceResponse,
   PlannerAction,
   QueueJobView,
   QueueStageKey,
@@ -68,8 +71,8 @@ export async function requestPlannerPreview(form: BuyerJobFormInput): Promise<Pl
 
 export async function createAndPostJob(form: BuyerJobFormInput, idempotencyKey?: string): Promise<{ job: QueueJobView; buyerToken: string }> {
   const client = getClient();
-  const draft = await client.createJobDraft(form, idempotencyKey);
-  const posted = await client.postJob(draft.job.id, draft.buyerToken, {});
+  const draft = await client.createTaskDraft(form, idempotencyKey);
+  const posted = await client.postTask(draft.job.id, draft.buyerToken, {});
   return {
     job: posted.job,
     buyerToken: draft.buyerToken
@@ -77,13 +80,13 @@ export async function createAndPostJob(form: BuyerJobFormInput, idempotencyKey?:
 }
 
 export async function fetchDemoJob(jobId: string, viewer: "buyer" | "runner" | "public", revealToken?: string): Promise<QueueJobView> {
-  const response = await getClient().getJob(jobId, viewer, revealToken);
+  const response = await getClient().getTask(jobId, viewer, revealToken);
   return response.job;
 }
 
 export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promise<AcceptJobResponse> {
   if (!agentBaseUrl) {
-    return getClient().acceptJob(payload.jobId, payload);
+    return getClient().acceptTask(payload.jobId, payload);
   }
 
   const externalResponse = await fetch(buildAgentUrl("/jobs/accept", "/api/jobs/accept"), {
@@ -95,7 +98,7 @@ export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promis
     acceptanceRecord?: Partial<AcceptJobResponse["acceptanceRecord"]>;
   }>(externalResponse);
 
-  const localJson = await getLocalClient().acceptJob(payload.jobId, payload);
+  const localJson = await getLocalClient().acceptTask(payload.jobId, payload);
 
   return {
     ...localJson,
@@ -107,12 +110,12 @@ export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promis
 }
 
 export async function submitDemoProof(jobId: string, request: SubmitProofRequest, revealToken?: string): Promise<QueueJobView> {
-  const response = await getClient().submitProof(jobId, revealToken ?? "", request);
+  const response = await getClient().submitTaskProof(jobId, revealToken ?? "", request);
   return response.job;
 }
 
 export async function fetchProofBundle(jobId: string, stageId: string, token: string) {
-  return getClient().getProofBundle(jobId, stageId, token);
+  return getClient().getTaskProofBundle(jobId, stageId, token);
 }
 
 export async function createSelfVerificationSession(jobId: string, runnerAddress: string) {
@@ -124,12 +127,12 @@ export async function fetchSelfVerificationSession(sessionId: string, accessToke
 }
 
 export async function approveDemoStage(jobId: string, request: ApproveStageRequest): Promise<QueueJobView> {
-  const response = await getClient().approveStage(jobId, request);
+  const response = await getClient().approveTaskStage(jobId, request);
   return response.job;
 }
 
 export async function disputeDemoStage(jobId: string, buyerToken: string, stageId: string, reason: string): Promise<QueueJobView> {
-  const response = await getClient().disputeStage(jobId, {
+  const response = await getClient().disputeTaskStage(jobId, {
     buyerToken,
     stageId,
     reason
@@ -140,6 +143,23 @@ export async function disputeDemoStage(jobId: string, buyerToken: string, stageI
 export async function updateDemoDelegation(jobId: string, buyerToken: string, request: DelegationUpdateRequest): Promise<QueueJobView> {
   const response = await getClient().updateDelegation(jobId, buyerToken, request);
   return response.job;
+}
+
+export async function stopTask(jobId: string, buyerToken: string, note?: string): Promise<QueueJobView> {
+  const response = await getClient().stopTask(jobId, buyerToken, note);
+  return response.job;
+}
+
+export async function requestAgentDecision(jobId: string, buyerToken: string): Promise<AgentDecisionResponse> {
+  return getClient().decideTask(jobId, buyerToken);
+}
+
+export async function fetchAgentLog(jobId: string, buyerToken: string): Promise<AgentLogResponse> {
+  return getClient().getTaskAgentLog(jobId, buyerToken);
+}
+
+export async function fetchEvidence(): Promise<EvidenceResponse> {
+  return getClient().getEvidence();
 }
 
 export function makeDefaultProofHash(stageKey: QueueStageKey, jobId: string) {

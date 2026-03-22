@@ -1,6 +1,6 @@
 # QueueKeeper
 
-QueueKeeper is a testnet-first product for private queue procurement: a buyer or agent can dispatch a verified human to scout or hold a place in line, keep the exact destination encrypted until verified acceptance, and release payouts only as proof-backed stages advance.
+QueueKeeper is a testnet-first private scout-and-hold procurement product: a human or agent principal can post a redacted task, reveal the exact destination only after verified acceptance, and pay only for the next verified increment instead of the whole promise.
 
 ## What is real now
 
@@ -16,11 +16,12 @@ QueueKeeper is a testnet-first product for private queue procurement: a buyer or
 - A typed SDK lives in `packages/sdk`.
 - `apps/agent` now exposes a real `/v1` headless API on top of the same core.
 - `apps/web` exposes the same `/api/v1` API locally and uses the same planner/verification boundaries.
-- Buyer and runner surfaces now use real persisted job state, not static sample data.
-- The web UX is now dispatch-first and operations-led:
-  - homepage explains the private dispatch loop in one screen
-  - buyer dashboard prioritizes plan, fund, dispatch, and review
-  - runner job view is mobile-first with a single next action
+- Human Mode and Agent Mode now exist as distinct product entrypoints.
+- The web UX is now task-first and operations-led:
+  - homepage explains the bounded-trust procurement loop in one screen
+  - `/agent` and `/human` create tasks against the same backend
+  - `/tasks/[taskId]` acts as the principal command center
+  - `/evidence` surfaces sponsor receipts and agent artifacts
 - Exact destination remains encrypted at rest and only becomes visible to an accepted runner with a valid reveal token.
 - Proof bundles can include encrypted image media, not just hashes.
 - Planner output changes the actual stage plan:
@@ -29,6 +30,7 @@ QueueKeeper is a testnet-first product for private queue procurement: a buyer or
   - `hold-now`
   - `abort`
 - The product supports both `DIRECT_DISPATCH` and `VERIFIED_POOL` modes at the schema/API layer.
+- Root agent artifacts are available at `/agent.json` and `/agent_log.json`.
 - A typed OpenAPI-style surface is exposed from the headless API at `/v1/openapi.json`.
 - Foundry tests pass for the current escrow/policy contracts, and the new durable backend lifecycle tests pass in `packages/core`.
 
@@ -36,8 +38,9 @@ QueueKeeper is a testnet-first product for private queue procurement: a buyer or
 
 ```mermaid
 flowchart LR
-  Buyer["Buyer Web App"] --> API["QueueKeeper API /v1"]
-  Runner["Runner Web App"] --> API
+  Human["Human Mode"] --> API["QueueKeeper Task API /v1"]
+  AgentMode["Agent Mode"] --> API
+  Runner["Runner Flow"] --> API
   Agent["External Agent / SDK"] --> API
   API --> Planner["Private Planner Boundary (Venice)"]
   API --> Verify["Verification Boundary (Self)"]
@@ -48,7 +51,7 @@ flowchart LR
 
 ## Privacy model
 
-- Public job envelope:
+- Public task envelope:
   - title
   - coarse area
   - rough timing window
@@ -71,20 +74,23 @@ flowchart LR
 
 The durable API surface is available in the agent app and mirrored locally in the web app:
 
-- `POST /v1/jobs/drafts`
+- `POST /v1/tasks/drafts`
 - `POST /v1/planner/preview`
-- `POST /v1/jobs/:jobId/post`
-- `POST /v1/jobs/:jobId/dispatch`
-- `GET /v1/jobs`
-- `GET /v1/jobs/:jobId`
-- `POST /v1/jobs/:jobId/accept`
-- `GET /v1/jobs/:jobId/reveal`
-- `POST /v1/jobs/:jobId/proofs`
-- `GET /v1/jobs/:jobId/proofs/:stageId`
-- `POST /v1/jobs/:jobId/stages/:stageId/approve`
-- `POST /v1/jobs/:jobId/stages/:stageId/dispute`
-- `POST /v1/jobs/:jobId/dispute/settle`
-- `GET /v1/jobs/:jobId/timeline`
+- `POST /v1/tasks/:taskId/post`
+- `POST /v1/tasks/:taskId/dispatch`
+- `GET /v1/tasks`
+- `GET /v1/tasks/:taskId`
+- `POST /v1/tasks/:taskId/accept`
+- `GET /v1/tasks/:taskId/reveal`
+- `POST /v1/tasks/:taskId/proofs`
+- `GET /v1/tasks/:taskId/proofs/:stageId`
+- `POST /v1/tasks/:taskId/stages/:stageId/approve`
+- `POST /v1/tasks/:taskId/stages/:stageId/dispute`
+- `POST /v1/tasks/:taskId/stop`
+- `POST /v1/tasks/:taskId/agent/decide`
+- `GET /v1/tasks/:taskId/agent/log`
+- `GET /v1/tasks/:taskId/timeline`
+- `GET /v1/evidence`
 
 ## Delegation model
 
@@ -115,7 +121,7 @@ The durable API surface is available in the agent app and mirrored locally in th
 
 ## Repo layout
 
-- `apps/web` — Next.js buyer + runner UI plus in-app demo backend
+- `apps/web` — Next.js Human Mode, Agent Mode, runner flow, and sponsor evidence
 - `apps/agent` — Node/TypeScript planner + verification service
 - `contracts` — Foundry contracts + tests
 - `packages/shared` — shared types, ABI, and deployed address exports
@@ -177,7 +183,7 @@ No secrets belong in git.
 
 ## Demo backend behavior
 
-- Source of truth for durable job state: `packages/core`
+- Source of truth for durable task state: `packages/core`
 - Headless API host: `apps/agent`
 - Local mirrored API host: `apps/web/app/api/v1`
 - Live planner status: the buyer preview shows `venice-live` vs `venice-fallback`

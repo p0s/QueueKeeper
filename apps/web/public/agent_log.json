@@ -1,0 +1,26 @@
+{
+  "task": "conference-merch-scout-and-hold",
+  "thesis": "Pay only for the next verified increment, never for the whole promise.",
+  "steps": [
+    {
+      "phase": "discover",
+      "summary": "Principal drafted a private scarce-access task with a redacted public summary and staged budget."
+    },
+    {
+      "phase": "plan",
+      "summary": "Private planner evaluated urgency, hidden destination, and budget tolerance before posting."
+    },
+    {
+      "phase": "verify",
+      "summary": "Runner verification completed before reveal access was granted."
+    },
+    {
+      "phase": "submit",
+      "summary": "Scout proof arrived with proof hash and media, making the first increment payable."
+    },
+    {
+      "phase": "decide",
+      "summary": "Agent recommended whether to stop or continue into the next hold increment."
+    }
+  ]
+}

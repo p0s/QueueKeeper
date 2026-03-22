@@ -28,6 +28,13 @@ export type QueueStageStatus =
 export type QueueJobMode = "DIRECT_DISPATCH" | "VERIFIED_POOL";
 export type QueueVerificationRequirement = "SELF_VERIFIED";
 export type QueueDisputeStatus = "none" | "open" | "settled";
+export type PrincipalMode = "HUMAN" | "AGENT";
+export type AgentDecision =
+  | "abort"
+  | "scout-again"
+  | "escalate-to-hold"
+  | "continue-hold"
+  | "complete";
 
 export const queueStageOrder: QueueStageKey[] = ["scout", "arrival", "heartbeat", "completion"];
 
@@ -90,6 +97,7 @@ export interface ExplorerLinkView {
 export interface QueueJobView {
   id: string;
   mode?: QueueJobMode;
+  principalMode?: PrincipalMode;
   title: string;
   coarseArea: string;
   timingWindow?: string;
@@ -113,12 +121,16 @@ export interface QueueJobView {
   onchainJobId?: string | null;
   plannerPreview?: PublicPlannerSummary;
   plannerProvider?: string;
+  procurementThesis?: string;
+  agentDecisionSummary?: string | null;
   disputeStatus?: QueueDisputeStatus;
   heartbeatIntervalSeconds?: number;
   heartbeatCount?: number;
   reviewWindowsSummary?: string;
   explorerLinks: ExplorerLinkView[];
 }
+
+export type TaskView = QueueJobView;
 
 export interface RunnerCandidate {
   address: string;
@@ -164,6 +176,7 @@ export interface SelfVerificationResult {
 export interface BuyerJobFormInput {
   id?: string;
   mode?: QueueJobMode;
+  principalMode?: PrincipalMode;
   title: string;
   coarseArea: string;
   timingWindow?: string;
@@ -310,6 +323,31 @@ export interface QueueTimelineEventView {
   payload?: Record<string, unknown>;
 }
 
+export interface AgentIdentityView {
+  name: string;
+  role: string;
+  mode: PrincipalMode;
+  harness: string;
+  model: string;
+  walletAddress?: string | null;
+  ensName?: string | null;
+  registrationUrl?: string | null;
+  receiptPolicy: string;
+  spendPolicy: string;
+  safetySummary: string[];
+}
+
+export interface AgentDecisionLogView {
+  id: string;
+  taskId: string;
+  phase: "discover" | "plan" | "execute" | "verify" | "decide" | "submit";
+  decision?: AgentDecision;
+  summary: string;
+  provider?: string | null;
+  createdAt: string;
+  payload?: Record<string, unknown>;
+}
+
 export interface QueueProofBundleView {
   jobId: string;
   stageId: string;
@@ -350,6 +388,8 @@ export interface QueueJobTimelineResponse {
   events: QueueTimelineEventView[];
 }
 
+export type TaskTimelineResponse = QueueJobTimelineResponse;
+
 export interface SelfVerificationSessionView {
   sessionId: string;
   jobId: string;
@@ -372,6 +412,49 @@ export interface SelfVerificationSessionView {
 export interface QueueJobsListResponse {
   jobs: QueueJobView[];
 }
+
+export type TaskListResponse = {
+  tasks: QueueJobView[];
+};
+
+export interface StopTaskRequest {
+  buyerToken: string;
+  note?: string;
+}
+
+export interface AgentDecisionResponse {
+  task: QueueJobView;
+  decision: {
+    action: AgentDecision;
+    reason: string;
+    provider?: string;
+  };
+  log: AgentDecisionLogView[];
+}
+
+export interface AgentLogResponse {
+  identity: AgentIdentityView;
+  task: QueueJobView;
+  log: AgentDecisionLogView[];
+}
+
+export interface EvidenceItemView {
+  id: string;
+  label: string;
+  sponsor: string;
+  status: "live" | "partial" | "planned";
+  summary: string;
+  href?: string;
+}
+
+export interface EvidenceResponse {
+  identity: AgentIdentityView;
+  deployedContracts: ExplorerLinkView[];
+  evidence: EvidenceItemView[];
+}
+
+export type CreateTaskDraftRequest = CreateJobDraftRequest;
+export type CreateTaskDraftResponse = CreateJobDraftResponse;
 
 export interface ApiError {
   error: {
