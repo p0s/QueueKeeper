@@ -7,7 +7,11 @@ import type {
   DisputeStageRequest,
   DispatchJobRequest,
   FundingNormalizationReceiptRequest,
+  PlannerAction,
   PlannerInput,
+  PrincipalMode,
+  PublicPlannerSummary,
+  QueueJobMode,
   SelfVerificationResult
 } from "@queuekeeper/shared";
 import { getQueueKeeperCore, persistQueueKeeperCore } from "./index";
@@ -30,6 +34,12 @@ type QueueKeeperRouterDeps = {
   verifySession?: (input: { sessionId: string; payload: Record<string, unknown> }) => Promise<{ verified: boolean; reason?: string | null; resultJson?: unknown }>;
 };
 
+type JsonRecord = Record<string, unknown>;
+
+const plannerActions = new Set<PlannerAction>(["scout-only", "scout-then-hold", "hold-now", "abort"]);
+const principalModes = new Set<PrincipalMode>(["HUMAN", "AGENT"]);
+const queueJobModes = new Set<QueueJobMode>(["DIRECT_DISPATCH", "VERIFIED_POOL"]);
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -44,6 +54,253 @@ function readBearer(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return undefined;
   return authHeader.slice("Bearer ".length);
+}
+
+function invalidRequest(message: string, details?: Record<string, unknown>) {
+  const error = new Error(message) as Error & { code: string; details?: Record<string, unknown> };
+  error.code = "INVALID_REQUEST";
+  error.details = details;
+  return error;
+}
+
+function ensureRecord(value: unknown, message = "Request body must be a JSON object.") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw invalidRequest(message);
+  }
+  return value as JsonRecord;
+}
+
+function getFirstDefined(body: JsonRecord, keys: string[]) {
+  for (const key of keys) {
+    if (body[key] !== undefined) return body[key];
+  }
+  return undefined;
+}
+
+function readOptionalString(body: JsonRecord, keys: string[], label: string) {
+  const value = getFirstDefined(body, keys);
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw invalidRequest(`${label} must be a string.`);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function readRequiredString(body: JsonRecord, keys: string[], label: string) {
+  const value = readOptionalString(body, keys, label);
+  if (!value) {
+    throw invalidRequest(`${label} is required.`);
+  }
+  return value;
+}
+
+function readOptionalNumber(body: JsonRecord, keys: string[], label: string) {
+  const value = getFirstDefined(body, keys);
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  throw invalidRequest(`${label} must be a finite number.`);
+}
+
+function readRequiredNumber(body: JsonRecord, keys: string[], label: string) {
+  const value = readOptionalNumber(body, keys, label);
+  if (value === undefined) {
+    throw invalidRequest(`${label} is required.`);
+  }
+  return value;
+}
+
+function readOptionalInteger(body: JsonRecord, keys: string[], label: string) {
+  const value = readOptionalNumber(body, keys, label);
+  if (value === undefined) return undefined;
+  if (!Number.isInteger(value)) {
+    throw invalidRequest(`${label} must be an integer.`);
+  }
+  return value;
+}
+
+function readOptionalBoolean(body: JsonRecord, keys: string[], label: string) {
+  const value = getFirstDefined(body, keys);
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw invalidRequest(`${label} must be a boolean.`);
+}
+
+function readRequiredBoolean(body: JsonRecord, keys: string[], label: string) {
+  const value = readOptionalBoolean(body, keys, label);
+  if (value === undefined) {
+    throw invalidRequest(`${label} is required.`);
+  }
+  return value;
+}
+
+function normalizePlannerAction(value: string | undefined) {
+  if (!value) return undefined;
+  if (!plannerActions.has(value as PlannerAction)) {
+    throw invalidRequest("plannerPreview.action must be one of scout-only, scout-then-hold, hold-now, or abort.");
+  }
+  return value as PlannerAction;
+}
+
+function normalizePrincipalMode(value: string | undefined) {
+  if (!value) return undefined;
+  if (!principalModes.has(value as PrincipalMode)) {
+    throw invalidRequest("principalMode must be HUMAN or AGENT.");
+  }
+  return value as PrincipalMode;
+}
+
+function normalizeQueueJobMode(value: string | undefined) {
+  if (!value) return undefined;
+  if (!queueJobModes.has(value as QueueJobMode)) {
+    throw invalidRequest("mode must be DIRECT_DISPATCH or VERIFIED_POOL.");
+  }
+  return value as QueueJobMode;
+}
+
+function readOptionalExpiryMinutes(body: JsonRecord) {
+  const expiresInMinutes = readOptionalInteger(body, ["expiresInMinutes"], "expiresInMinutes");
+  if (expiresInMinutes !== undefined) {
+    return expiresInMinutes;
+  }
+
+  const expiresAt = readOptionalString(body, ["expiresAt"], "expiresAt");
+  if (!expiresAt) return undefined;
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresAtMs)) {
+    throw invalidRequest("expiresAt must be a valid ISO-8601 timestamp.");
+  }
+
+  const remainingMinutes = Math.ceil((expiresAtMs - Date.now()) / 60_000);
+  if (remainingMinutes <= 0) {
+    throw invalidRequest("expiresAt must be in the future.");
+  }
+  return remainingMinutes;
+}
+
+function readRequiredExpiryMinutes(body: JsonRecord) {
+  const value = readOptionalExpiryMinutes(body);
+  if (value === undefined) {
+    throw invalidRequest("expiresInMinutes is required. Pass a positive integer or an ISO-8601 expiresAt timestamp.");
+  }
+  return value;
+}
+
+function deriveUrgency(body: JsonRecord): PlannerInput["urgency"] {
+  const urgency = readOptionalString(body, ["urgency"], "urgency");
+  if (urgency) {
+    if (urgency === "low" || urgency === "medium" || urgency === "high") {
+      return urgency;
+    }
+    throw invalidRequest("urgency must be low, medium, or high.");
+  }
+
+  const expiryMinutes = readOptionalExpiryMinutes(body);
+  if (expiryMinutes !== undefined) {
+    if (expiryMinutes <= 45) return "high";
+    if (expiryMinutes <= 120) return "medium";
+  }
+
+  return "medium";
+}
+
+function normalizeRunnerCandidates(body: JsonRecord): PlannerInput["candidates"] {
+  const rawCandidates = getFirstDefined(body, ["candidates", "runnerCandidates"]);
+  if (rawCandidates !== undefined) {
+    if (!Array.isArray(rawCandidates)) {
+      throw invalidRequest("candidates must be an array.");
+    }
+
+    return rawCandidates.map((candidate, index) => {
+      const candidateBody = ensureRecord(candidate, `candidates[${index}] must be an object.`);
+      return {
+        address: readRequiredString(candidateBody, ["address"], `candidates[${index}].address`),
+        score: readRequiredNumber(candidateBody, ["score"], `candidates[${index}].score`),
+        verifiedHuman: readRequiredBoolean(candidateBody, ["verifiedHuman"], `candidates[${index}].verifiedHuman`),
+        etaMinutes: readRequiredNumber(candidateBody, ["etaMinutes"], `candidates[${index}].etaMinutes`)
+      };
+    });
+  }
+
+  const selectedRunnerAddress = readOptionalString(body, ["selectedRunnerAddress", "runnerAddress"], "selectedRunnerAddress");
+  if (!selectedRunnerAddress) {
+    throw invalidRequest("Planner preview requires a candidates array or selectedRunnerAddress.");
+  }
+
+  return [{
+    address: selectedRunnerAddress,
+    score: readOptionalNumber(body, ["score", "runnerScore"], "score") ?? 90,
+    verifiedHuman: readOptionalBoolean(body, ["verifiedHuman", "runnerVerifiedHuman"], "verifiedHuman") ?? true,
+    etaMinutes: readOptionalNumber(body, ["etaMinutes", "runnerEtaMinutes"], "etaMinutes") ?? 5
+  }];
+}
+
+function normalizePlannerPreview(value: unknown): PublicPlannerSummary | undefined {
+  if (value === undefined || value === null) return undefined;
+  const body = ensureRecord(value, "plannerPreview must be an object.");
+  return {
+    action: normalizePlannerAction(readRequiredString(body, ["action"], "plannerPreview.action")) ?? "scout-then-hold",
+    reason: readRequiredString(body, ["reason"], "plannerPreview.reason"),
+    selectedRunnerAddress: readOptionalString(body, ["selectedRunnerAddress"], "plannerPreview.selectedRunnerAddress")
+  };
+}
+
+function normalizePlannerInput(value: unknown): PlannerInput {
+  const body = ensureRecord(value);
+  return {
+    urgency: deriveUrgency(body),
+    scoutFee: readRequiredNumber(body, ["scoutFee", "scoutFeeUsd"], "scoutFee"),
+    arrivalFee: readOptionalNumber(body, ["arrivalFee", "arrivalFeeUsd"], "arrivalFee"),
+    heartbeatFee: readOptionalNumber(body, ["heartbeatFee", "heartbeatFeeUsd"], "heartbeatFee"),
+    completionBonus: readRequiredNumber(body, ["completionBonus", "completionFeeUsd"], "completionBonus"),
+    maxBudget: readRequiredNumber(body, ["maxBudget", "maxSpendUsd"], "maxBudget"),
+    hiddenExactLocation: readRequiredString(body, ["hiddenExactLocation", "exactLocation"], "hiddenExactLocation"),
+    hiddenNotes: readOptionalString(body, ["hiddenNotes", "notes"], "hiddenNotes"),
+    privateFallbackInstructions: readOptionalString(body, ["privateFallbackInstructions", "fallbackInstructions"], "privateFallbackInstructions"),
+    waitingToleranceMinutes: readOptionalInteger(body, ["waitingToleranceMinutes"], "waitingToleranceMinutes"),
+    mode: normalizeQueueJobMode(readOptionalString(body, ["mode"], "mode")),
+    candidates: normalizeRunnerCandidates(body)
+  };
+}
+
+function normalizeBuyerJobFormInput(value: unknown) {
+  const body = ensureRecord(value);
+  const plannerPreview = normalizePlannerPreview(body.plannerPreview);
+  return {
+    payload: {
+      id: readOptionalString(body, ["id"], "id"),
+      mode: normalizeQueueJobMode(readOptionalString(body, ["mode"], "mode")),
+      principalMode: normalizePrincipalMode(readOptionalString(body, ["principalMode"], "principalMode")),
+      title: readRequiredString(body, ["title"], "title"),
+      coarseArea: readRequiredString(body, ["coarseArea"], "coarseArea"),
+      timingWindow: readOptionalString(body, ["timingWindow"], "timingWindow"),
+      exactLocation: readRequiredString(body, ["exactLocation", "hiddenExactLocation"], "exactLocation"),
+      hiddenNotes: readRequiredString(body, ["hiddenNotes", "notes"], "hiddenNotes"),
+      privateFallbackInstructions: readOptionalString(body, ["privateFallbackInstructions", "fallbackInstructions"], "privateFallbackInstructions"),
+      sensitiveBuyerPreferences: readOptionalString(body, ["sensitiveBuyerPreferences"], "sensitiveBuyerPreferences"),
+      handoffSecret: readOptionalString(body, ["handoffSecret"], "handoffSecret"),
+      waitingToleranceMinutes: readOptionalInteger(body, ["waitingToleranceMinutes"], "waitingToleranceMinutes"),
+      maxSpendUsd: readRequiredNumber(body, ["maxSpendUsd", "maxBudget"], "maxSpendUsd"),
+      scoutFeeUsd: readRequiredNumber(body, ["scoutFeeUsd", "scoutFee"], "scoutFeeUsd"),
+      arrivalFeeUsd: readRequiredNumber(body, ["arrivalFeeUsd", "arrivalFee"], "arrivalFeeUsd"),
+      heartbeatFeeUsd: readRequiredNumber(body, ["heartbeatFeeUsd", "heartbeatFee"], "heartbeatFeeUsd"),
+      completionFeeUsd: readRequiredNumber(body, ["completionFeeUsd", "completionBonus"], "completionFeeUsd"),
+      expiresInMinutes: readRequiredExpiryMinutes(body),
+      heartbeatCount: readOptionalInteger(body, ["heartbeatCount"], "heartbeatCount"),
+      heartbeatIntervalSeconds: readOptionalInteger(body, ["heartbeatIntervalSeconds"], "heartbeatIntervalSeconds"),
+      buyerAddress: readOptionalString(body, ["buyerAddress"], "buyerAddress"),
+      selectedRunnerAddress: readOptionalString(body, ["selectedRunnerAddress", "runnerAddress"], "selectedRunnerAddress") ?? plannerPreview?.selectedRunnerAddress,
+      plannerPreview
+    } satisfies BuyerJobFormInput,
+    plannerInput: body.plannerInput === undefined ? undefined : normalizePlannerInput(body.plannerInput)
+  };
 }
 
 function parseBuyerForm(body: BuyerJobFormInput, planner?: PlannerResult): BuyerJobFormInput & {
@@ -107,19 +364,19 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
     }
 
     if (request.method === "POST" && pathname === "/v1/planner/preview") {
-      const payload = (await request.json()) as PlannerInput;
+      const payload = normalizePlannerInput(await request.json());
       return json(200, await deps.plan(payload));
     }
 
     if (request.method === "POST" && (pathname === "/v1/jobs/drafts" || pathname === "/v1/tasks/drafts")) {
-      const payload = (await request.json()) as BuyerJobFormInput & { plannerInput?: PlannerInput };
+      const parsed = normalizeBuyerJobFormInput(await request.json());
       const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
-      const planner = payload.plannerPreview
+      const planner = parsed.payload.plannerPreview
         ? undefined
-        : payload.plannerInput
-          ? await deps.plan(payload.plannerInput)
+        : parsed.plannerInput
+          ? await deps.plan(parsed.plannerInput)
           : undefined;
-      return json(200, core.createTaskDraft(parseBuyerForm(payload, planner), idempotencyKey));
+      return json(200, core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey));
     }
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && request.method === "POST" && segments.length === 3) {
@@ -364,10 +621,14 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : "INTERNAL_ERROR";
+    const details = typeof error === "object" && error && "details" in error
+      ? (error as { details?: Record<string, unknown> }).details
+      : undefined;
     return json(code === "NOT_FOUND" ? 404 : code === "UNAUTHORIZED" ? 401 : code === "VERIFICATION_FAILED" ? 403 : 400, {
       error: {
         code,
-        message
+        message,
+        ...(details ? { details } : {})
       }
     });
   }

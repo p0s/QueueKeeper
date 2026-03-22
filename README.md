@@ -78,6 +78,11 @@ flowchart LR
 
 The durable API surface is available in the agent app and mirrored locally in the web app:
 
+- Public agent handoff: `/skill.md`
+- Machine-readable contract: `/api/v1/openapi.json`
+- `POST /v1/tasks/drafts` returns `buyerToken`; send it as `Authorization: Bearer <buyerToken>` on buyer-only routes such as `post`, `GET /v1/tasks/:taskId?viewer=buyer`, `agent/decide`, and `agent/log`.
+- Draft creation accepts `expiresInMinutes` or `expiresAt` (ISO-8601).
+
 - `POST /v1/tasks/drafts`
 - `POST /v1/planner/preview`
 - `POST /v1/tasks/:taskId/post`

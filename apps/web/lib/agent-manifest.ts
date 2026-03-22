@@ -1,5 +1,6 @@
 import type { AgentIdentityView } from "@queuekeeper/shared";
 import { deployedAddresses } from "@queuekeeper/shared";
+import { buildPlannerInputFromBuyerForm, derivePlannerPreview, getDefaultBuyerFormInput } from "./demo-data";
 
 export const procurementThesis =
   "Rent a human with bounded trust: pay only for the next verified increment, never for the whole promise.";
@@ -93,8 +94,21 @@ export function getStaticAgentLog() {
   };
 }
 
+function jsonCodeBlock(value: unknown) {
+  return `\`\`\`json
+${JSON.stringify(value, null, 2)}
+\`\`\``;
+}
+
 export function getPublicSkillMarkdown(origin = "https://queuekeeper.xyz") {
   const normalizedOrigin = origin.replace(/\/+$/, "");
+  const draftExample = getDefaultBuyerFormInput();
+  const plannerExample = buildPlannerInputFromBuyerForm(draftExample);
+  const plannerPreviewExample = derivePlannerPreview(draftExample);
+  const draftRequestExample = {
+    ...draftExample,
+    plannerPreview: plannerPreviewExample
+  };
 
   return `# QueueKeeper Skill
 
@@ -127,6 +141,57 @@ QueueKeeper pre-funds task capacity, keeps the exact destination private until v
 \`POST ${normalizedOrigin}/api/v1/tasks/:taskId/agent/decide\`
 6. Read the structured agent log:
 \`GET ${normalizedOrigin}/api/v1/tasks/:taskId/agent/log\`
+
+## Required request bodies
+
+Planner preview request:
+
+${jsonCodeBlock(plannerExample)}
+
+Task draft request:
+
+${jsonCodeBlock(draftRequestExample)}
+
+Notes:
+
+- \`expiresInMinutes\` must be an integer minute count. If you already have a timestamp, the draft endpoint also accepts \`expiresAt\` as an ISO-8601 time.
+- Planner preview requires a \`candidates\` array. If you only have one chosen runner, you can send \`selectedRunnerAddress\` plus optional \`score\`, \`verifiedHuman\`, and \`etaMinutes\` instead.
+- Reuse the planner response as \`plannerPreview\` when you create the draft.
+
+## Buyer token auth
+
+The draft response returns \`buyerToken\`. Use it as:
+
+\`\`\`
+Authorization: Bearer <buyerToken>
+\`\`\`
+
+Buyer-token auth is required for:
+
+- \`POST ${normalizedOrigin}/api/v1/tasks/:taskId/post\`
+- \`GET ${normalizedOrigin}/api/v1/tasks/:taskId?viewer=buyer\`
+- \`POST ${normalizedOrigin}/api/v1/tasks/:taskId/agent/decide\`
+- \`GET ${normalizedOrigin}/api/v1/tasks/:taskId/agent/log\`
+
+## Minimal end-to-end curl
+
+\`\`\`bash
+curl -s ${normalizedOrigin}/api/v1/planner/preview \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(plannerExample, null, 2)}'
+
+curl -s ${normalizedOrigin}/api/v1/tasks/drafts \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(draftRequestExample, null, 2)}'
+
+curl -s ${normalizedOrigin}/api/v1/tasks/<taskId>/post \\
+  -H "Authorization: Bearer <buyerToken>" \\
+  -H "Content-Type: application/json" \\
+  -d '{}'
+
+curl -s "${normalizedOrigin}/api/v1/tasks/<taskId>?viewer=buyer" \\
+  -H "Authorization: Bearer <buyerToken>"
+\`\`\`
 
 ## Minimal discovery commands
 

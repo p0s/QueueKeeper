@@ -1262,6 +1262,62 @@ export class QueueKeeperCore {
   }
 
   openApiDocument(baseUrl = "https://api.queuekeeper.local") {
+    const plannerPreviewExample = {
+      urgency: "medium",
+      scoutFee: 4,
+      arrivalFee: 6,
+      heartbeatFee: 5,
+      completionBonus: 20,
+      maxBudget: 35,
+      hiddenExactLocation: "North entrance merch line, next to the red sponsor arch",
+      hiddenNotes: "Scout first. Hold only if the line is moving and still below the corner.",
+      privateFallbackInstructions: "Abort if staff switches to wristband-only entry.",
+      waitingToleranceMinutes: 10,
+      mode: "DIRECT_DISPATCH",
+      candidates: [
+        {
+          address: "0xa11ce0000000000000000000000000000000001",
+          score: 92,
+          verifiedHuman: true,
+          etaMinutes: 6
+        }
+      ]
+    };
+    const plannerPreviewResponseExample = {
+      summary: {
+        action: "scout-then-hold",
+        reason: "Urgency or completion upside justifies immediate hold after a positive scout signal.",
+        selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+      },
+      meta: {
+        provider: "mock"
+      }
+    };
+    const taskDraftExample = {
+      mode: "DIRECT_DISPATCH",
+      principalMode: "AGENT",
+      title: "Conference merch queue hold",
+      coarseArea: "Moscone West / Howard St",
+      timingWindow: "Today, next 2 hours",
+      exactLocation: "North entrance merch line, next to the red sponsor arch",
+      hiddenNotes: "Scout first. Hold only if the line is moving and still below the corner.",
+      privateFallbackInstructions: "Abort if staff switches to wristband-only entry.",
+      sensitiveBuyerPreferences: "Buyer mostly wants queue intelligence and a place hold, not item purchase.",
+      handoffSecret: "MERCH-2026-HANDOFF",
+      waitingToleranceMinutes: 10,
+      maxSpendUsd: 35,
+      scoutFeeUsd: 4,
+      arrivalFeeUsd: 6,
+      heartbeatFeeUsd: 5,
+      completionFeeUsd: 20,
+      expiresInMinutes: 120,
+      heartbeatCount: 3,
+      heartbeatIntervalSeconds: 300,
+      buyerAddress: "0xb0b0000000000000000000000000000000000001",
+      selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
+      plannerPreview: plannerPreviewResponseExample.summary
+    };
+
     return {
       openapi: "3.1.0",
       info: {
@@ -1270,13 +1326,370 @@ export class QueueKeeperCore {
         description: "Headless API for private scout-and-hold task procurement, agent decisions, and staged payouts."
       },
       servers: [{ url: baseUrl }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "opaque buyer token"
+          }
+        },
+        schemas: {
+          ApiError: {
+            type: "object",
+            required: ["error"],
+            properties: {
+              error: {
+                type: "object",
+                required: ["code", "message"],
+                properties: {
+                  code: { type: "string" },
+                  message: { type: "string" },
+                  details: {
+                    type: "object",
+                    additionalProperties: true
+                  }
+                }
+              }
+            }
+          },
+          RunnerCandidate: {
+            type: "object",
+            required: ["address", "score", "verifiedHuman", "etaMinutes"],
+            properties: {
+              address: { type: "string" },
+              score: { type: "number" },
+              verifiedHuman: { type: "boolean" },
+              etaMinutes: { type: "number" }
+            }
+          },
+          PublicPlannerSummary: {
+            type: "object",
+            required: ["action", "reason"],
+            properties: {
+              action: {
+                type: "string",
+                enum: ["scout-only", "scout-then-hold", "hold-now", "abort"]
+              },
+              reason: { type: "string" },
+              selectedRunnerAddress: { type: "string" }
+            }
+          },
+          PlannerPreviewRequest: {
+            type: "object",
+            required: ["scoutFee", "completionBonus", "maxBudget", "hiddenExactLocation"],
+            anyOf: [
+              { required: ["candidates"] },
+              { required: ["selectedRunnerAddress"] }
+            ],
+            properties: {
+              urgency: {
+                type: "string",
+                enum: ["low", "medium", "high"],
+                description: "Optional. Defaults to medium if omitted."
+              },
+              scoutFee: { type: "number" },
+              arrivalFee: { type: "number" },
+              heartbeatFee: { type: "number" },
+              completionBonus: { type: "number" },
+              maxBudget: { type: "number" },
+              hiddenExactLocation: { type: "string" },
+              hiddenNotes: { type: "string" },
+              privateFallbackInstructions: { type: "string" },
+              waitingToleranceMinutes: { type: "integer" },
+              mode: {
+                type: "string",
+                enum: ["DIRECT_DISPATCH", "VERIFIED_POOL"]
+              },
+              candidates: {
+                type: "array",
+                items: { $ref: "#/components/schemas/RunnerCandidate" }
+              },
+              selectedRunnerAddress: {
+                type: "string",
+                description: "Single-runner shorthand. If provided without candidates, the API creates a one-runner candidate list."
+              },
+              score: { type: "number" },
+              verifiedHuman: { type: "boolean" },
+              etaMinutes: { type: "number" }
+            }
+          },
+          PlannerPreviewResponse: {
+            type: "object",
+            required: ["summary"],
+            properties: {
+              summary: { $ref: "#/components/schemas/PublicPlannerSummary" },
+              meta: {
+                type: "object",
+                additionalProperties: true
+              }
+            }
+          },
+          TaskDraftRequest: {
+            type: "object",
+            required: [
+              "title",
+              "coarseArea",
+              "exactLocation",
+              "hiddenNotes",
+              "maxSpendUsd",
+              "scoutFeeUsd",
+              "arrivalFeeUsd",
+              "heartbeatFeeUsd",
+              "completionFeeUsd"
+            ],
+            anyOf: [
+              { required: ["expiresInMinutes"] },
+              { required: ["expiresAt"] }
+            ],
+            properties: {
+              id: { type: "string" },
+              mode: {
+                type: "string",
+                enum: ["DIRECT_DISPATCH", "VERIFIED_POOL"]
+              },
+              principalMode: {
+                type: "string",
+                enum: ["HUMAN", "AGENT"]
+              },
+              title: { type: "string" },
+              coarseArea: { type: "string" },
+              timingWindow: { type: "string" },
+              exactLocation: { type: "string" },
+              hiddenNotes: { type: "string" },
+              privateFallbackInstructions: { type: "string" },
+              sensitiveBuyerPreferences: { type: "string" },
+              handoffSecret: { type: "string" },
+              waitingToleranceMinutes: { type: "integer" },
+              maxSpendUsd: { type: "number" },
+              scoutFeeUsd: { type: "number" },
+              arrivalFeeUsd: { type: "number" },
+              heartbeatFeeUsd: { type: "number" },
+              completionFeeUsd: { type: "number" },
+              expiresInMinutes: {
+                type: "integer",
+                description: "Preferred expiry input."
+              },
+              expiresAt: {
+                type: "string",
+                format: "date-time",
+                description: "Alternative expiry input. If present, the API derives expiresInMinutes."
+              },
+              heartbeatCount: { type: "integer" },
+              heartbeatIntervalSeconds: { type: "integer" },
+              buyerAddress: { type: "string" },
+              selectedRunnerAddress: { type: "string" },
+              plannerPreview: { $ref: "#/components/schemas/PublicPlannerSummary" },
+              plannerInput: { $ref: "#/components/schemas/PlannerPreviewRequest" }
+            }
+          },
+          TaskDraftResponse: {
+            type: "object",
+            required: ["job", "buyerToken"],
+            properties: {
+              buyerToken: { type: "string" },
+              job: {
+                type: "object",
+                additionalProperties: true,
+                description: "Task snapshot with redacted and stage data."
+              }
+            }
+          },
+          TaskResponse: {
+            type: "object",
+            properties: {
+              job: {
+                type: "object",
+                additionalProperties: true
+              }
+            }
+          },
+          AgentDecisionResponse: {
+            type: "object",
+            additionalProperties: true
+          },
+          AgentLogResponse: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
+      },
       paths: {
-        "/v1/tasks/drafts": { post: { summary: "Create task draft" } },
-        "/v1/planner/preview": { post: { summary: "Preview planner decision" } },
-        "/v1/tasks/{taskId}/post": { post: { summary: "Fund and post task" } },
-        "/v1/tasks": { get: { summary: "List redacted tasks" } },
-        "/v1/tasks/{taskId}": { get: { summary: "Fetch task detail" } },
-        "/v1/tasks/{taskId}/dispatch": { post: { summary: "Dispatch a task to a specific runner" } },
+        "/v1/tasks/drafts": {
+          post: {
+            summary: "Create task draft",
+            description: "Creates a private task draft and returns the buyerToken used for later buyer-authorized task actions.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/TaskDraftRequest" },
+                  example: taskDraftExample
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Draft created.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/TaskDraftResponse" }
+                  }
+                }
+              },
+              "400": {
+                description: "Validation failed.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/ApiError" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/v1/planner/preview": {
+          post: {
+            summary: "Preview planner decision",
+            description: "Evaluates hidden task context and returns a planner action plus reason.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/PlannerPreviewRequest" },
+                  example: plannerPreviewExample
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Planner preview.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/PlannerPreviewResponse" },
+                    example: plannerPreviewResponseExample
+                  }
+                }
+              },
+              "400": {
+                description: "Validation failed.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/ApiError" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/v1/tasks/{taskId}/post": {
+          post: {
+            summary: "Fund and post task",
+            description: "Requires buyerToken from the draft response in the Authorization header. An empty JSON body is valid.",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+              {
+                name: "taskId",
+                in: "path",
+                required: true,
+                schema: { type: "string" }
+              }
+            ],
+            requestBody: {
+              required: false,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    additionalProperties: true
+                  },
+                  example: {}
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Task posted.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/TaskResponse" }
+                  }
+                }
+              },
+              "401": {
+                description: "Missing or invalid buyer token.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/ApiError" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/v1/tasks": {
+          get: {
+            summary: "List redacted tasks",
+            parameters: [
+              {
+                name: "viewer",
+                in: "query",
+                required: false,
+                schema: {
+                  type: "string",
+                  enum: ["public", "buyer", "runner"]
+                }
+              }
+            ]
+          }
+        },
+        "/v1/tasks/{taskId}": {
+          get: {
+            summary: "Fetch task detail",
+            description: "Use viewer=buyer plus buyerToken to see the buyer-authorized task state.",
+            parameters: [
+              {
+                name: "taskId",
+                in: "path",
+                required: true,
+                schema: { type: "string" }
+              },
+              {
+                name: "viewer",
+                in: "query",
+                required: false,
+                schema: {
+                  type: "string",
+                  enum: ["public", "buyer", "runner"]
+                }
+              }
+            ],
+            responses: {
+              "200": {
+                description: "Task detail.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/TaskResponse" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/v1/tasks/{taskId}/dispatch": {
+          post: {
+            summary: "Dispatch a task to a specific runner",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+              {
+                name: "taskId",
+                in: "path",
+                required: true,
+                schema: { type: "string" }
+              }
+            ]
+          }
+        },
         "/v1/tasks/{taskId}/accept": { post: { summary: "Accept a task after verification" } },
         "/v1/tasks/{taskId}/reveal": { get: { summary: "Fetch authorized reveal data" } },
         "/v1/tasks/{taskId}/proofs": { post: { summary: "Submit encrypted proof bundle" } },
@@ -1284,8 +1697,68 @@ export class QueueKeeperCore {
         "/v1/tasks/{taskId}/stages/{stageId}/approve": { post: { summary: "Approve payout stage" } },
         "/v1/tasks/{taskId}/stages/{stageId}/dispute": { post: { summary: "Dispute payout stage" } },
         "/v1/tasks/{taskId}/stop": { post: { summary: "Stop the task after the current verified increment" } },
-        "/v1/tasks/{taskId}/agent/decide": { post: { summary: "Compute and log the next agent decision" } },
-        "/v1/tasks/{taskId}/agent/log": { get: { summary: "Fetch structured agent execution log" } },
+        "/v1/tasks/{taskId}/agent/decide": {
+          post: {
+            summary: "Compute and log the next agent decision",
+            description: "Requires buyerToken in the Authorization header. Body may be empty.",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+              {
+                name: "taskId",
+                in: "path",
+                required: true,
+                schema: { type: "string" }
+              }
+            ],
+            requestBody: {
+              required: false,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    additionalProperties: true
+                  },
+                  example: {}
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Decision logged.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/AgentDecisionResponse" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/v1/tasks/{taskId}/agent/log": {
+          get: {
+            summary: "Fetch structured agent execution log",
+            description: "Requires buyerToken in the Authorization header.",
+            security: [{ bearerAuth: [] }],
+            parameters: [
+              {
+                name: "taskId",
+                in: "path",
+                required: true,
+                schema: { type: "string" }
+              }
+            ],
+            responses: {
+              "200": {
+                description: "Structured agent log.",
+                content: {
+                  "application/json": {
+                    schema: { $ref: "#/components/schemas/AgentLogResponse" }
+                  }
+                }
+              }
+            }
+          }
+        },
         "/v1/tasks/{taskId}/agent/tool-purchase": { post: { summary: "Record a paid agent tool purchase and add it to the private planner context" } },
         "/v1/tasks/{taskId}/funding/normalized": { post: { summary: "Record a treasury normalization receipt for the task" } },
         "/v1/tasks/{taskId}/timeline": { get: { summary: "Fetch receipts timeline" } },
