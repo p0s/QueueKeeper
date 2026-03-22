@@ -1,5 +1,6 @@
 import { getQueueKeeperCore } from "@queuekeeper/core";
 import { LandingModeHero } from "../components/landing-mode-hero";
+import { TrustLoopIllustration } from "../components/minimalist-graphics";
 import { TaskFeedBoard } from "../components/task-feed-board";
 
 const benefitCards = [
@@ -80,6 +81,9 @@ export default async function HomePage() {
         <div>
           <span className="eyebrow">How it works</span>
           <h2 className="section-title">Scout → Hold → Complete</h2>
+        </div>
+        <div className="loop-illustration-shell">
+          <TrustLoopIllustration />
         </div>
         <div className="loop-grid">
           {loopSteps.map((step) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { QueueKeeperLogoMark } from "./minimalist-graphics";
 
 type PrincipalHeroMode = "AGENT" | "HUMAN";
 
@@ -31,6 +32,7 @@ export function LandingModeHero() {
   return (
     <section className="landing-hero">
       <div className="card hero-card hero-card-centered fade-in">
+        <QueueKeeperLogoMark />
         <h1 className="hero-title">Trust any human: Private scout-and-hold procurement</h1>
 
         <p className="hero-subtitle">

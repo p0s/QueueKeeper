@@ -294,6 +294,11 @@ select {
   text-align: center;
 }
 
+.logo-mark {
+  width: 72px;
+  height: 72px;
+}
+
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -473,6 +478,16 @@ select {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+.loop-illustration-shell {
+  display: flex;
+  justify-content: center;
+}
+
+.trust-loop-illustration {
+  width: min(620px, 100%);
+  height: auto;
 }
 
 .loop-card {
@@ -963,6 +978,11 @@ select.input {
   .hero-headline {
     max-width: unset;
     font-size: clamp(2.5rem, 11vw, 3.8rem);
+  }
+
+  .logo-mark {
+    width: 60px;
+    height: 60px;
   }
 
   .action-row {
