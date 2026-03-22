@@ -234,6 +234,64 @@ test("task draft applies the low default payout ladder when omitted", async () =
   assert.equal(json.job.stages.find((stage) => stage.key === "completion")?.amount, "2.00 cUSD");
 });
 
+test("task draft infers VERIFIED_POOL when no mode and no selected runner are supplied", async () => {
+  installTestCore("draft-infers-pool");
+
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      principalMode: "AGENT",
+      title: "Pool inference",
+      coarseArea: "Seattle / Pike St",
+      exactLocation: "Starbucks, 1124 Pike St, Seattle, WA 98101",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during draft creation.");
+    },
+    verify
+  });
+
+  assert.equal(response.status, 200);
+  const json = await response.json() as { job: { mode?: string; publicListingStatus?: string } };
+  assert.equal(json.job.mode, "VERIFIED_POOL");
+  assert.equal(json.job.publicListingStatus, "hidden");
+});
+
+test("task draft rejects DIRECT_DISPATCH when selected runner is missing", async () => {
+  installTestCore("draft-dispatch-requires-runner");
+
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      mode: "DIRECT_DISPATCH",
+      principalMode: "AGENT",
+      title: "Dispatch without runner",
+      coarseArea: "Seattle / Pike St",
+      exactLocation: "Starbucks, 1124 Pike St, Seattle, WA 98101",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during invalid draft creation.");
+    },
+    verify
+  });
+
+  assert.equal(response.status, 400);
+  const json = await response.json() as { error: { message: string } };
+  assert.equal(json.error.message, "selectedRunnerAddress is required for DIRECT_DISPATCH. Use VERIFIED_POOL for a public board listing.");
+});
+
 test("post task accepts a completely empty body", async () => {
   installTestCore("post-empty-body");
 

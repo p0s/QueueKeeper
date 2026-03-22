@@ -1288,16 +1288,16 @@ export class QueueKeeperCore {
   openApiDocument(baseUrl = "https://api.queuekeeper.local") {
     const plannerPreviewExample = {
       urgency: "medium",
-      scoutFee: 4,
-      arrivalFee: 6,
-      heartbeatFee: 5,
-      completionBonus: 20,
-      maxBudget: 35,
+      scoutFee: 1,
+      arrivalFee: 1,
+      heartbeatFee: 1,
+      completionBonus: 2,
+      maxBudget: 5,
       hiddenExactLocation: "North entrance merch line, next to the red sponsor arch",
       hiddenNotes: "Scout first. Hold only if the line is moving and still below the corner.",
       privateFallbackInstructions: "Abort if staff switches to wristband-only entry.",
       waitingToleranceMinutes: 10,
-      mode: "DIRECT_DISPATCH",
+      mode: "VERIFIED_POOL",
       candidates: [
         {
           address: "0xa11ce00000000000000000000000000000000001",
@@ -1309,16 +1309,15 @@ export class QueueKeeperCore {
     };
     const plannerPreviewResponseExample = {
       summary: {
-        action: "scout-then-hold",
-        reason: "Urgency or completion upside justifies immediate hold after a positive scout signal.",
-        selectedRunnerAddress: "0xa11ce00000000000000000000000000000000001"
+        action: "scout-only",
+        reason: "Default to low-risk scouting first when urgency and payoff are moderate."
       },
       meta: {
         provider: "mock"
       }
     };
     const taskDraftExample = {
-      mode: "DIRECT_DISPATCH",
+      mode: "VERIFIED_POOL",
       principalMode: "AGENT",
       title: "Conference merch queue hold",
       coarseArea: "Moscone West / Howard St",
@@ -1329,16 +1328,15 @@ export class QueueKeeperCore {
       sensitiveBuyerPreferences: "Buyer mostly wants queue intelligence and a place hold, not item purchase.",
       handoffSecret: "MERCH-2026-HANDOFF",
       waitingToleranceMinutes: 10,
-      maxSpendUsd: 35,
-      scoutFeeUsd: 4,
-      arrivalFeeUsd: 6,
-      heartbeatFeeUsd: 5,
-      completionFeeUsd: 20,
+      maxSpendUsd: 5,
+      scoutFeeUsd: 1,
+      arrivalFeeUsd: 1,
+      heartbeatFeeUsd: 1,
+      completionFeeUsd: 2,
       expiresInMinutes: 120,
       heartbeatCount: 3,
       heartbeatIntervalSeconds: 300,
       buyerAddress: "0xb0b0000000000000000000000000000000000001",
-      selectedRunnerAddress: "0xa11ce00000000000000000000000000000000001",
       plannerPreview: plannerPreviewResponseExample.summary
     };
 
@@ -2025,11 +2023,14 @@ export class QueueKeeperCore {
       .filter((stage) => ["approved", "auto-released", "settled"].includes(stage.status))
       .reduce((sum, stage) => sum + stage.amountCusd, 0);
     const totalEscrow = stages.reduce((sum, stage) => sum + stage.amountCusd, 0);
+    const publicListing = this.describePublicListing(job);
 
     return {
       id: job.id,
       mode: job.mode,
       principalMode: job.principalMode,
+      publicListingStatus: publicListing.status,
+      publicListingReason: publicListing.reason,
       title: job.title,
       coarseArea: job.coarseArea,
       timingWindow: job.timingWindow,
@@ -2087,6 +2088,34 @@ export class QueueKeeperCore {
       heartbeatCount: job.heartbeatCount,
       reviewWindowsSummary: `${job.heartbeatIntervalSeconds}s heartbeat cadence with buyer review + timeout auto-release`,
       explorerLinks: this.buildExplorerLinks(chain)
+    };
+  }
+
+  private describePublicListing(job: CoreJobRecord) {
+    if (job.mode !== "VERIFIED_POOL") {
+      return {
+        status: "hidden" as const,
+        reason: "Direct dispatch tasks stay private and do not appear on the public /tasks board."
+      };
+    }
+
+    if (job.status !== "posted") {
+      return {
+        status: "hidden" as const,
+        reason: "Only posted verified-pool tasks appear on the public /tasks board."
+      };
+    }
+
+    if (job.acceptedRunnerAddress) {
+      return {
+        status: "hidden" as const,
+        reason: "Accepted tasks leave the public /tasks board."
+      };
+    }
+
+    return {
+      status: "visible" as const,
+      reason: "This task is eligible for the public /tasks board."
     };
   }
 

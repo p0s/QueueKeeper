@@ -183,6 +183,36 @@ pnpm test
 cd contracts && forge test -vv
 ```
 
+### UI smoke tests
+
+Install the browser once:
+
+```bash
+pnpm playwright:install
+```
+
+Run the checked-in smoke suite:
+
+```bash
+pnpm test:smoke
+```
+
+Useful variants:
+
+```bash
+pnpm test:smoke:headed
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3004 pnpm test:smoke
+PLAYWRIGHT_REUSE_SERVER=0 pnpm test:smoke
+```
+
+Current smoke scenarios:
+
+- landing page human/agent entrypoints
+- human default create + post flow
+- public earn board visibility
+- runner accept + first proof submission
+- sponsor evidence page load
+
 ## Environment
 
 Copy and fill:

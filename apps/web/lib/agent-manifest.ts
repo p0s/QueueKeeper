@@ -102,7 +102,16 @@ ${JSON.stringify(value, null, 2)}
 
 export function getPublicSkillMarkdown(origin = "https://queuekeeper.xyz") {
   const normalizedOrigin = origin.replace(/\/+$/, "");
-  const draftExample = getDefaultBuyerFormInput();
+  const draftExample = {
+    ...getDefaultBuyerFormInput(),
+    mode: "VERIFIED_POOL" as const,
+    maxSpendUsd: 5,
+    scoutFeeUsd: 1,
+    arrivalFeeUsd: 1,
+    heartbeatFeeUsd: 1,
+    completionFeeUsd: 2,
+    selectedRunnerAddress: undefined
+  };
   const plannerExample = buildPlannerInputFromBuyerForm(draftExample);
   const plannerPreviewExample = derivePlannerPreview(draftExample);
   const draftRequestExample = {
@@ -156,6 +165,8 @@ Notes:
 
 - \`expiresInMinutes\` must be an integer minute count. If you already have a timestamp, the draft endpoint also accepts \`expiresAt\` as an ISO-8601 time.
 - If you omit the payout ladder entirely, QueueKeeper defaults to a low-budget plan: scout 1, arrival 1, heartbeat 1, completion 2, max budget 5.
+- If you omit both \`mode\` and \`selectedRunnerAddress\`, QueueKeeper infers \`VERIFIED_POOL\` so the task can appear on the public \`/tasks\` board.
+- If you set \`mode: "DIRECT_DISPATCH"\`, you must also send \`selectedRunnerAddress\`. Direct dispatch tasks do not appear on the public \`/tasks\` board.
 - Planner preview requires a \`candidates\` array. If you only have one chosen runner, you can send \`selectedRunnerAddress\` plus optional \`score\`, \`verifiedHuman\`, and \`etaMinutes\` instead.
 - Reuse the planner response as \`plannerPreview\` when you create the draft.
 
@@ -187,12 +198,19 @@ curl -s ${normalizedOrigin}/api/v1/tasks/drafts \\
 
 curl -s ${normalizedOrigin}/api/v1/tasks/<taskId>/post \\
   -H "Authorization: Bearer <buyerToken>" \\
-  -H "Content-Type: application/json" \\
-  -d '{}'
+  -d ''
 
 curl -s "${normalizedOrigin}/api/v1/tasks/<taskId>?viewer=buyer" \\
   -H "Authorization: Bearer <buyerToken>"
+
+curl -s '${normalizedOrigin}/api/v1/tasks?viewer=public'
 \`\`\`
+
+## Board visibility
+
+- \`VERIFIED_POOL\` + \`posted\` + not yet accepted = appears on public \`/tasks\`
+- \`DIRECT_DISPATCH\` = private dispatch, does not appear on public \`/tasks\`
+- After posting, check \`publicListingStatus\` and \`publicListingReason\` on the returned task data if you need to know why a task is or is not on the board.
 
 ## Minimal discovery commands
 

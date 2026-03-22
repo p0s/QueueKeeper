@@ -293,6 +293,13 @@ function normalizePlannerInput(value: unknown): PlannerInput {
 function normalizeBuyerJobFormInput(value: unknown) {
   const body = ensureRecord(value);
   const plannerPreview = normalizePlannerPreview(body.plannerPreview);
+  const selectedRunnerAddress = readOptionalString(body, ["selectedRunnerAddress", "runnerAddress"], "selectedRunnerAddress")
+    ?? plannerPreview?.selectedRunnerAddress;
+  const requestedMode = normalizeQueueJobMode(readOptionalString(body, ["mode"], "mode"));
+  const mode = requestedMode ?? (selectedRunnerAddress ? "DIRECT_DISPATCH" : "VERIFIED_POOL");
+  if (mode === "DIRECT_DISPATCH" && !selectedRunnerAddress) {
+    throw invalidRequest("selectedRunnerAddress is required for DIRECT_DISPATCH. Use VERIFIED_POOL for a public board listing.");
+  }
   const scoutFeeUsd = readOptionalNumber(body, ["scoutFeeUsd", "scoutFee"], "scoutFeeUsd") ?? defaultPayoutLadder.scout;
   const arrivalFeeUsd = readOptionalNumber(body, ["arrivalFeeUsd", "arrivalFee"], "arrivalFeeUsd") ?? defaultPayoutLadder.arrival;
   const heartbeatFeeUsd = readOptionalNumber(body, ["heartbeatFeeUsd", "heartbeatFee"], "heartbeatFeeUsd") ?? defaultPayoutLadder.heartbeat;
@@ -303,7 +310,7 @@ function normalizeBuyerJobFormInput(value: unknown) {
   return {
     payload: {
       id: readOptionalString(body, ["id"], "id"),
-      mode: normalizeQueueJobMode(readOptionalString(body, ["mode"], "mode")),
+      mode,
       principalMode: normalizePrincipalMode(readOptionalString(body, ["principalMode"], "principalMode")),
       title: readRequiredString(body, ["title"], "title"),
       coarseArea: readRequiredString(body, ["coarseArea"], "coarseArea"),
@@ -323,7 +330,7 @@ function normalizeBuyerJobFormInput(value: unknown) {
       heartbeatCount: readOptionalInteger(body, ["heartbeatCount"], "heartbeatCount"),
       heartbeatIntervalSeconds: readOptionalInteger(body, ["heartbeatIntervalSeconds"], "heartbeatIntervalSeconds"),
       buyerAddress: readOptionalString(body, ["buyerAddress"], "buyerAddress"),
-      selectedRunnerAddress: readOptionalString(body, ["selectedRunnerAddress", "runnerAddress"], "selectedRunnerAddress") ?? plannerPreview?.selectedRunnerAddress,
+      selectedRunnerAddress,
       plannerPreview
     } satisfies BuyerJobFormInput,
     plannerInput: body.plannerInput === undefined ? undefined : normalizePlannerInput(body.plannerInput)

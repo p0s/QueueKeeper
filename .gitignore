@@ -22,3 +22,5 @@ submission.local.json
 .queuekeeper-data
 .queuekeeper-object-store
 **/.vercel
+playwright-report
+test-results

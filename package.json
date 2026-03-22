@@ -13,7 +13,10 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv"
+    "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv",
+    "test:smoke": "playwright test -c playwright.config.ts",
+    "test:smoke:headed": "playwright test -c playwright.config.ts --headed",
+    "playwright:install": "playwright install chromium"
   },
   "pnpm": {
     "overrides": {
@@ -23,6 +26,7 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.8"
+    "@biomejs/biome": "^2.4.8",
+    "@playwright/test": "1.55.0"
   }
 }

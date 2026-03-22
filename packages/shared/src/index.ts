@@ -98,6 +98,8 @@ export interface QueueJobView {
   id: string;
   mode?: QueueJobMode;
   principalMode?: PrincipalMode;
+  publicListingStatus?: "visible" | "hidden";
+  publicListingReason?: string;
   title: string;
   coarseArea: string;
   timingWindow?: string;
