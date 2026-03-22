@@ -309,9 +309,23 @@ Source of truth for deployed addresses:
 
 Current exported addresses:
 
-- Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
-- Delegation policy: `0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3`
-- Proof registry: `0xc049de0d689bdf0186407a03708204c9e4199e49`
+- Escrow: [`0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`](https://celo-sepolia.blockscout.com/address/0xb566298bf1c1afa55f0edc514b2f9d990c82f98c)
+- Delegation policy: [`0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3`](https://celo-sepolia.blockscout.com/address/0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3)
+- Proof registry: [`0xc049de0d689bdf0186407a03708204c9e4199e49`](https://celo-sepolia.blockscout.com/address/0xc049de0d689bdf0186407a03708204c9e4199e49)
+
+## Onchain proof
+
+Judges should not have to trust screenshots or prose. QueueKeeper exposes real explorer links for the identity rail, contract layer, and staged payout flow.
+
+### ERC-8004 / Synthesis registration
+
+- Agent registration tx: [0x30806b449bf3e1b5e740b94ed9ebcc4c278f40fec702d9f905940263c526b8f7](https://basescan.org/tx/0x30806b449bf3e1b5e740b94ed9ebcc4c278f40fec702d9f905940263c526b8f7)
+
+### Deployed contracts
+
+- Escrow contract: [0xb566298bf1c1afa55f0edc514b2f9d990c82f98c](https://celo-sepolia.blockscout.com/address/0xb566298bf1c1afa55f0edc514b2f9d990c82f98c)
+- Delegation policy contract: [0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3](https://celo-sepolia.blockscout.com/address/0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3)
+- Proof registry contract: [0xc049de0d689bdf0186407a03708204c9e4199e49](https://celo-sepolia.blockscout.com/address/0xc049de0d689bdf0186407a03708204c9e4199e49)
 
 ## Historical Celo Sepolia example
 
