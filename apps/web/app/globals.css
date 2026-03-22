@@ -279,11 +279,19 @@ select {
 }
 
 .landing-hero {
-  align-items: stretch;
+  max-width: 920px;
+  margin: 0 auto;
 }
 
 .hero-card {
   padding: 30px;
+}
+
+.hero-card-centered {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
 }
 
 .mode-toggle {
@@ -333,8 +341,11 @@ select {
   pointer-events: none;
 }
 
-.hero-sidecard {
-  align-self: stretch;
+.hero-title {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2.8rem, 6vw, 4.9rem);
+  line-height: 0.94;
 }
 
 .hero-headline {
@@ -348,10 +359,23 @@ select {
   max-width: 14ch;
 }
 
+.hero-subtitle {
+  margin: 0;
+  max-width: 44rem;
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .hero-copy {
   max-width: 48rem;
-  font-size: 1.08rem;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.hero-inline-copy,
+.hero-support-copy {
+  max-width: 40rem;
 }
 
 .hero-tertiary {
@@ -429,15 +453,15 @@ select {
 .why-grid,
 .sponsor-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
 .why-card,
 .sponsor-card {
   display: grid;
-  gap: 10px;
-  min-height: 172px;
+  gap: 8px;
+  min-height: 0;
 }
 
 .subsection-title {
@@ -453,20 +477,7 @@ select {
 
 .loop-card {
   display: grid;
-  gap: 14px;
-}
-
-.loop-step-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
-  color: var(--accent-strong);
-  font-weight: 800;
+  gap: 8px;
 }
 
 .loop-meta {
@@ -948,6 +959,7 @@ select.input {
     padding: 22px;
   }
 
+  .hero-title,
   .hero-headline {
     max-width: unset;
     font-size: clamp(2.5rem, 11vw, 3.8rem);

@@ -1,27 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AgentIdentityView } from "@queuekeeper/shared";
-import { AgentIdentityCard } from "./agent-identity-card";
-
-type SponsorStatus = {
-  erc8004: string;
-  venice: string;
-  self: string;
-  celo: string;
-  uniswap: string;
-  x402: string;
-};
 
 type PrincipalHeroMode = "AGENT" | "HUMAN";
 
-export function LandingModeHero({
-  agentIdentity,
-  sponsorStatus
-}: {
-  agentIdentity: AgentIdentityView;
-  sponsorStatus: SponsorStatus;
-}) {
+export function LandingModeHero() {
   const [mode, setMode] = useState<PrincipalHeroMode>("AGENT");
   const [origin, setOrigin] = useState("https://queuekeeper.xyz");
   const [copied, setCopied] = useState(false);
@@ -46,11 +29,15 @@ export function LandingModeHero({
   }
 
   return (
-    <section className="hero-grid landing-hero">
-      <div className="card hero-card fade-in">
-        <span className="badge-pill">Trust any human: Private scout-and-hold procurement</span>
+    <section className="landing-hero">
+      <div className="card hero-card hero-card-centered fade-in">
+        <h1 className="hero-title">Trust any human: Private scout-and-hold procurement</h1>
 
-        <p className="hero-copy muted" style={{ margin: "4px 0 0", maxWidth: "38rem" }}>
+        <p className="hero-subtitle">
+          Rent-a-human, but no need for escrow, no need to trust, and private - to queue, help, scout and more.
+        </p>
+
+        <p className="hero-copy muted hero-inline-copy">
           Privately procure a verified human to scout, hold, or hand off scarce real-world access.
         </p>
 
@@ -75,34 +62,23 @@ export function LandingModeHero({
           </button>
         </div>
 
-        <div className="stack" style={{ gap: 14 }}>
-          <h1 className="hero-headline hero-headline-tight">
-            {isAgent
-              ? "Let an agent draft, decide, and escalate inside a hard spend boundary."
-              : "Run the same bounded-trust task flow yourself."}
-          </h1>
-          <p className="hero-copy muted">
-            {isAgent
-              ? "The agent can plan privately, buy optional sidecar signals, and still keep the principal inside explicit spend and reveal boundaries."
-              : "Pre-fund a task, keep sensitive details private until verified acceptance, and pay only for each proof-backed step."}
-          </p>
-          <p className="hero-tertiary">Bound trust to the next verified increment.</p>
-        </div>
+        <p className="hero-copy muted hero-support-copy">
+          Pre-fund a task, keep sensitive details private until verified acceptance, and pay only for each proof-backed step.
+        </p>
 
         <div className="cta-row">
           <a className="button" href={isAgent ? "/agent" : "/human"}>
-            {isAgent ? "Start in Agent Mode" : "Start in Human Mode"}
+            {isAgent ? "Use with my agent" : "Rent a human"}
           </a>
-          <a className="button secondary" href="/evidence">See live evidence</a>
         </div>
 
         {isAgent ? (
           <div className="compat-strip">
-            <span className="eyebrow">Compatible with agent runtimes</span>
+            <span className="eyebrow">Use with any agent</span>
             <div className="compat-pills">
               <span className="compat-pill">Codex</span>
-              <span className="compat-pill">API agents</span>
-              <span className="compat-pill">Custom runtimes</span>
+              <span className="compat-pill">OpenClaw</span>
+              <span className="compat-pill">Custom agents</span>
             </div>
             <div className="agent-handoff-card">
               <div className="action-row">
@@ -122,38 +98,6 @@ export function LandingModeHero({
           </div>
         ) : null}
       </div>
-
-      <aside className="hero-sidecard fade-in">
-        {isAgent ? (
-          <AgentIdentityCard compact identity={agentIdentity} />
-        ) : (
-          <section className="card alt">
-            <span className="eyebrow">Human principal</span>
-            <h3 className="section-title">Direct control, same trust model</h3>
-            <p className="muted">
-              The human principal uses the same private task model, verification gate, and proof-backed payout ladder without delegating the decision loop.
-            </p>
-            <div className="summary-grid compact-grid" style={{ marginTop: 14 }}>
-              <div className="summary-tile">
-                <span className="eyebrow">Control</span>
-                <strong>Direct buyer decisions</strong>
-              </div>
-              <div className="summary-tile">
-                <span className="eyebrow">Privacy</span>
-                <strong>Reveal stays gated</strong>
-              </div>
-              <div className="summary-tile">
-                <span className="eyebrow">Payments</span>
-                <strong>{sponsorStatus.celo === "live" ? "Live Celo rail" : "Staged micropayments"}</strong>
-              </div>
-              <div className="summary-tile">
-                <span className="eyebrow">Acceptance</span>
-                <strong>{sponsorStatus.self === "live" ? "Self-gated" : "Verification-gated"}</strong>
-              </div>
-            </div>
-          </section>
-        )}
-      </aside>
     </section>
   );
 }
