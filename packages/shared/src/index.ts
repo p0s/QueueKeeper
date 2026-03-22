@@ -114,9 +114,6 @@ export interface QueueJobView {
   plannerPreview?: PublicPlannerSummary;
   plannerProvider?: string;
   disputeStatus?: QueueDisputeStatus;
-  buyerSessionToken?: string;
-  runnerActionToken?: string;
-  revealToken?: string;
   heartbeatIntervalSeconds?: number;
   heartbeatCount?: number;
   reviewWindowsSummary?: string;
@@ -357,6 +354,7 @@ export interface SelfVerificationSessionView {
   sessionId: string;
   jobId: string;
   runnerAddress: string;
+  accessToken?: string;
   scope: string;
   appName: string;
   endpoint: string;

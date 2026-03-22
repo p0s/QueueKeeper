@@ -10,11 +10,11 @@ async function previewPlanner(input: HiddenPlannerRequest) {
 }
 
 async function verifySession(input: { sessionId: string; payload: Record<string, unknown> }) {
-  const session = (await getQueueKeeperCore()).getSelfVerificationSession(input.sessionId);
+  const session = (await getQueueKeeperCore()).getSelfVerificationSessionForVerification(input.sessionId);
 
   try {
     return await verifySelfPayload(session, input.payload);
-  } catch (error) {
+  } catch {
     const verification = await verifyRunner({
       reference: session.reference,
       proof: input.payload.proof,

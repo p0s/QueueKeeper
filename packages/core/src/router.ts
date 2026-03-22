@@ -1,12 +1,11 @@
-import {
-  buildPlannerDecision,
-  type AcceptJobVerificationPayload,
-  type ApproveStageRequest,
-  type BuyerJobFormInput,
-  type DisputeStageRequest,
-  type DispatchJobRequest,
-  type PlannerInput,
-  type SelfVerificationResult
+import type {
+  AcceptJobVerificationPayload,
+  ApproveStageRequest,
+  BuyerJobFormInput,
+  DisputeStageRequest,
+  DispatchJobRequest,
+  PlannerInput,
+  SelfVerificationResult
 } from "@queuekeeper/shared";
 import { getQueueKeeperCore, persistQueueKeeperCore } from "./index";
 
@@ -103,11 +102,13 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && request.method === "POST" && segments.length === 3) {
       const payload = (await request.json()) as { jobId: string; runnerAddress: string };
-      return json(200, core.createSelfVerificationSession(payload.jobId, payload.runnerAddress, url.origin));
+      const response = core.createSelfVerificationSession(payload.jobId, payload.runnerAddress, url.origin);
+      await persistQueueKeeperCore(core);
+      return json(200, response);
     }
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && segments[3] && request.method === "GET") {
-      return json(200, core.getSelfVerificationSession(segments[3]));
+      return json(200, core.getSelfVerificationSession(segments[3], readBearer(request) ?? ""));
     }
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && segments[3] && segments[4] === "verify" && request.method === "POST") {
@@ -121,7 +122,9 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       }
       const payload = (await request.json()) as Record<string, unknown>;
       const result = await deps.verifySession({ sessionId: segments[3], payload });
-      return json(200, core.completeSelfVerificationSession(segments[3], result));
+      const response = core.completeSelfVerificationSession(segments[3], result);
+      await persistQueueKeeperCore(core);
+      return json(200, response);
     }
 
     if (request.method === "GET" && pathname === "/v1/jobs") {
@@ -175,7 +178,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         const payload = (await request.json()) as { runnerAddress: string; verificationPayload: AcceptJobVerificationPayload; txHash?: string };
         let verification: SelfVerificationResult;
         if (payload.verificationPayload.sessionId) {
-          const session = core.getSelfVerificationSession(payload.verificationPayload.sessionId);
+          const session = core.getSelfVerificationSessionForVerification(payload.verificationPayload.sessionId);
           verification = session.status === "verified"
             ? {
                 status: "verified",

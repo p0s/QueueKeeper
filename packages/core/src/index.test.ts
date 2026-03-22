@@ -158,6 +158,42 @@ test("public view never reveals exact location before acceptance", () => {
   assert.throws(() => core.getRevealData(draft.job.id, "bad-token"));
 });
 
+test("self session polling requires the session access token", () => {
+  const core = createTestCore("self-session");
+  const draft = createDraft(core);
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  const session = core.createSelfVerificationSession(
+    draft.job.id,
+    "0xa11ce0000000000000000000000000000000001",
+    "https://queuekeeper.test"
+  );
+
+  assert.ok(session.accessToken);
+  assert.equal(
+    core.getSelfVerificationSession(session.sessionId, session.accessToken ?? "").sessionId,
+    session.sessionId
+  );
+  assert.throws(
+    () => core.getSelfVerificationSession(session.sessionId, "wrong-token"),
+    /Valid session access token required/
+  );
+});
+
+test("public direct-dispatch view hides runner assignment", () => {
+  const core = createTestCore("dispatch-redaction");
+  const draft = createDraft(core, {
+    mode: "DIRECT_DISPATCH",
+    selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+  });
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  const publicJob = core.getJob(draft.job.id, "public");
+  assert.equal(publicJob.selectedRunnerAddress, undefined);
+  assert.equal(publicJob.acceptedRunnerAddress, undefined);
+  assert.equal(publicJob.plannerPreview?.selectedRunnerAddress, undefined);
+});
+
 test("idempotent draft creation returns the same job", () => {
   const core = createTestCore("idempotent");
   const first = createDraft(core, { title: "Idempotent" });

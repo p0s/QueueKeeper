@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { QueueJobView, QueueStageKey, SelfVerificationSessionView } from "@queuekeeper/shared";
 import {
   createSelfVerificationSession,
+  fetchDemoJob,
   fetchProofBundle,
   fetchSelfVerificationSession,
   makeDefaultProofHash,
@@ -13,6 +14,7 @@ import {
 } from "../lib/agent-client";
 import { acceptLiveJob, submitLiveProof } from "../lib/chain-client";
 import { buildTxExplorerLinks } from "../lib/explorer";
+import { getRunnerRevealToken, setRunnerRevealToken } from "../lib/job-session";
 import { getCachedOnchainJobId, getCachedTxHashes, rememberTxHash } from "../lib/live-chain-cache";
 import { ExplorerPanel } from "./explorer-panel";
 import { FilePreviewGrid } from "./file-preview-grid";
@@ -51,7 +53,11 @@ export function RunnerJobDemo({
   const [proofFiles, setProofFiles] = useState<Record<string, File[]>>({});
   const [selectedBundle, setSelectedBundle] = useState<Awaited<ReturnType<typeof fetchProofBundle>> | null>(null);
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
-  const nextProofStageId = nextProofStage?.stageId;
+  const stickyAction = !job.acceptedRunnerAddress
+    ? handleAccept
+    : nextProofStage
+      ? () => handleProofSubmit(nextProofStage.stageId ?? nextProofStage.key, nextProofStage.key, nextProofStage.sequence)
+      : undefined;
   const nextActionCopy = !job.acceptedRunnerAddress
     ? "Verification must succeed before QueueKeeper reveals the exact destination."
     : nextProofStage
@@ -75,9 +81,33 @@ export function RunnerJobDemo({
   }, [jobId]);
 
   useEffect(() => {
-    if (!selfSession || selfSession.status !== "pending") return;
+    if (initialRevealToken) {
+      setRunnerRevealToken(jobId, initialRevealToken);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("revealToken");
+        window.history.replaceState({}, "", url.toString());
+      }
+      return;
+    }
+
+    const storedRevealToken = getRunnerRevealToken(jobId);
+    if (!storedRevealToken) {
+      return;
+    }
+
+    setRevealToken(storedRevealToken);
+    fetchDemoJob(jobId, "runner", storedRevealToken)
+      .then((timelineJob) => setJob(timelineJob))
+      .catch(() => {
+        // Ignore stale session tokens and fall back to the public view.
+      });
+  }, [initialRevealToken, jobId]);
+
+  useEffect(() => {
+    if (!selfSession || selfSession.status !== "pending" || !selfSession.accessToken) return;
     const interval = window.setInterval(async () => {
-      const next = await fetchSelfVerificationSession(selfSession.sessionId);
+      const next = await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken);
       setSelfSession(next);
       if (next.status === "verified") {
         setAcceptState(`Self verification succeeded · session ${next.sessionId}`);
@@ -123,11 +153,7 @@ export function RunnerJobDemo({
       });
       setJob(accepted.job);
       setRevealToken(accepted.acceptanceRecord.revealToken);
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("revealToken", accepted.acceptanceRecord.revealToken);
-        window.history.replaceState({}, "", url.toString());
-      }
+      setRunnerRevealToken(jobId, accepted.acceptanceRecord.revealToken);
       setAcceptState(`Accepted · verification ref ${accepted.acceptanceRecord.verificationReference}`);
     } catch (error) {
       setAcceptState(error instanceof Error ? error.message : String(error));
@@ -250,7 +276,7 @@ export function RunnerJobDemo({
               {selfSession ? (
                 <SelfQrPanel
                   onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}
-                  onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId))}
+                  onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken))}
                   session={selfSession}
                 />
               ) : null}
@@ -392,7 +418,7 @@ export function RunnerJobDemo({
           <button
             className="button"
             disabled={!job.acceptedRunnerAddress && liveSelfMode && selfSession?.status !== "verified"}
-            onClick={!job.acceptedRunnerAddress ? handleAccept : nextProofStageId ? () => handleProofSubmit(nextProofStageId, nextProofStage!.key, nextProofStage!.sequence) : undefined}
+            onClick={stickyAction}
             type="button"
           >
             {nextActionLabel}

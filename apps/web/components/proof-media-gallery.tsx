@@ -47,13 +47,8 @@ export function ProofMediaGallery({
         })}
       </div>
       {selected ? (
-        <div
-          aria-modal="true"
-          className="media-modal-backdrop"
-          onClick={() => setSelected(null)}
-          role="dialog"
-        >
-          <div className="media-modal" onClick={(event) => event.stopPropagation()}>
+        <div aria-modal="true" className="media-modal-backdrop" role="dialog">
+          <div className="media-modal">
             <div className="media-modal-header">
               <div className="stack-tight">
                 <span className="eyebrow">{title}</span>

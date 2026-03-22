@@ -20,7 +20,9 @@ export function FilePreviewGrid({ files }: { files: File[] }) {
     setPreviews(next);
 
     return () => {
-      next.forEach((item) => URL.revokeObjectURL(item.url));
+      next.forEach((item) => {
+        URL.revokeObjectURL(item.url);
+      });
     };
   }, [files]);
 

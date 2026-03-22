@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
-  buildPlannerDecision,
   queueStageLabels,
   type AcceptJobResponse,
   type ApiError,
@@ -15,7 +13,6 @@ import {
   type DispatchJobRequest,
   type DisputeStageRequest,
   type PlannerAction,
-  type PublicPlannerSummary,
   type QueueDisputeStatus,
   type QueueJobMode,
   type QueueJobStatus,
@@ -29,9 +26,7 @@ import {
   type QueueStageView,
   type QueueTimelineEventView,
   type QueueViewerRole,
-  type ReleaseStageRequest,
   type RevealDataResponse,
-  type RunnerVerificationView,
   type SelfVerificationResult,
   type SettleDisputeRequest,
   type SubmitProofRequest
@@ -120,27 +115,6 @@ type QueueKeeperCoreConfig = {
   arbiterToken: string | null;
 };
 
-type VerificationSessionRecord = {
-  id: string;
-  jobId: string;
-  runnerAddress: string;
-  scope: string;
-  appName: string;
-  endpoint: string;
-  endpointType: "https" | "staging_https" | "celo" | "staging_celo";
-  userId: string;
-  userIdType: "hex" | "uuid";
-  userDefinedData: string;
-  status: "pending" | "verified" | "failed";
-  provider: "self";
-  reference: string;
-  verifiedAt: string | null;
-  reason: string | null;
-  resultJson: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 type VerificationSessionRow = Record<string, unknown>;
 
 type StageTemplate = {
@@ -161,9 +135,7 @@ type AuthContext = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __queuekeeperCoreSingleton: QueueKeeperCore | undefined;
-  // eslint-disable-next-line no-var
   var __queuekeeperCoreSingletonPromise: Promise<QueueKeeperCore> | undefined;
 }
 
@@ -189,10 +161,6 @@ function formatCusd(amount: number) {
 
 function parseJson<T>(value: string): T {
   return JSON.parse(value) as T;
-}
-
-function stableStringify(value: unknown) {
-  return JSON.stringify(value, Object.keys(value as Record<string, unknown>).sort());
 }
 
 function defaultDataDir() {
@@ -355,6 +323,7 @@ export class QueueKeeperCore {
         id TEXT PRIMARY KEY,
         job_id TEXT NOT NULL,
         runner_address TEXT NOT NULL,
+        access_token_hash TEXT,
         scope TEXT NOT NULL,
         app_name TEXT NOT NULL,
         endpoint TEXT NOT NULL,
@@ -372,6 +341,14 @@ export class QueueKeeperCore {
         updated_at TEXT NOT NULL
       );
     `);
+    this.ensureColumn("verification_sessions", "access_token_hash", "TEXT");
+  }
+
+  private ensureColumn(table: string, column: string, definition: string) {
+    const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name?: string }>;
+    if (!rows.some((row) => row.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+    }
   }
 
   withIdempotency<T>(route: string, idempotencyKey: string | undefined, fn: () => T): T {
@@ -616,10 +593,7 @@ export class QueueKeeperCore {
       accepted: true,
       jobId,
       runnerAddress,
-      job: {
-        ...acceptedJob,
-        revealToken
-      },
+      job: acceptedJob,
       acceptanceRecord: {
         verificationReference: verification.reference,
         verificationProvider: verification.provider,
@@ -632,7 +606,14 @@ export class QueueKeeperCore {
 
   createSelfVerificationSession(jobId: string, runnerAddress: string, origin: string): SelfVerificationSessionView {
     const job = this.getJobRecord(jobId);
+    if (job.mode === "DIRECT_DISPATCH" && job.selectedRunnerAddress && job.selectedRunnerAddress.toLowerCase() !== runnerAddress.toLowerCase()) {
+      throw this.error("UNAUTHORIZED", "This dispatch is only available to the selected runner.");
+    }
+    if (job.acceptedRunnerAddress && job.acceptedRunnerAddress.toLowerCase() !== runnerAddress.toLowerCase()) {
+      throw this.error("UNAUTHORIZED", "Job is already accepted by another runner.");
+    }
     const sessionId = crypto.randomUUID();
+    const accessToken = randomToken();
     const scope = process.env.NEXT_PUBLIC_SELF_SCOPE ?? process.env.SELF_SCOPE ?? "queuekeeper";
     const appName = process.env.NEXT_PUBLIC_SELF_APP_NAME ?? process.env.SELF_APP_NAME ?? "QueueKeeper";
     const endpointType = (process.env.NEXT_PUBLIC_SELF_ENDPOINT_TYPE ?? process.env.SELF_ENDPOINT_TYPE ?? "staging_https") as SelfVerificationSessionView["endpointType"];
@@ -642,25 +623,44 @@ export class QueueKeeperCore {
 
     this.db.prepare(`
       INSERT INTO verification_sessions (
-        id, job_id, runner_address, scope, app_name, endpoint, endpoint_type, user_id, user_id_type,
+        id, job_id, runner_address, access_token_hash, scope, app_name, endpoint, endpoint_type, user_id, user_id_type,
         user_defined_data, status, provider, reference, verified_at, reason, result_json, created_at, updated_at
       ) VALUES (
-        ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'hex',
-        ?9, 'pending', 'self', ?10, NULL, NULL, NULL, ?11, ?11
+        ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'hex',
+        ?10, 'pending', 'self', ?11, NULL, NULL, NULL, ?12, ?12
       )
-    `).run(sessionId, jobId, runnerAddress, scope, appName, endpoint, endpointType, runnerAddress, userDefinedData, sessionId, createdAt);
+    `).run(
+      sessionId,
+      jobId,
+      runnerAddress,
+      sha256Hex(accessToken),
+      scope,
+      appName,
+      endpoint,
+      endpointType,
+      runnerAddress,
+      userDefinedData,
+      sessionId,
+      createdAt
+    );
 
     this.recordEvent(jobId, "verification.session.created", "runner", runnerAddress, "Runner started a Self verification session.", {
       sessionId
     });
 
-    return this.getSelfVerificationSession(sessionId);
+    return this.mapVerificationSession(this.getVerificationSessionRow(sessionId), accessToken);
   }
 
-  getSelfVerificationSession(sessionId: string): SelfVerificationSessionView {
-    const row = this.db.prepare("SELECT * FROM verification_sessions WHERE id = ?1").get(sessionId) as VerificationSessionRow | undefined;
-    if (!row) throw this.error("NOT_FOUND", `Verification session ${sessionId} was not found.`);
-    return this.mapVerificationSession(row);
+  getSelfVerificationSession(sessionId: string, accessToken: string): SelfVerificationSessionView {
+    const row = this.getVerificationSessionRow(sessionId);
+    if (!this.hasSessionAccess(row, accessToken)) {
+      throw this.error("UNAUTHORIZED", "Valid session access token required.");
+    }
+    return this.mapVerificationSession(row, accessToken);
+  }
+
+  getSelfVerificationSessionForVerification(sessionId: string): SelfVerificationSessionView {
+    return this.mapVerificationSession(this.getVerificationSessionRow(sessionId));
   }
 
   completeSelfVerificationSession(sessionId: string, result: {
@@ -668,7 +668,7 @@ export class QueueKeeperCore {
     reason?: string | null;
     resultJson?: unknown;
   }) {
-    const session = this.getSelfVerificationSession(sessionId);
+    const session = this.getSelfVerificationSessionForVerification(sessionId);
     const status = result.verified ? "verified" : "failed";
     const verifiedAt = result.verified ? nowIso() : null;
     this.db.prepare(`
@@ -682,7 +682,7 @@ export class QueueKeeperCore {
       reason: result.reason ?? null
     });
 
-    return this.getSelfVerificationSession(sessionId);
+    return this.getSelfVerificationSessionForVerification(sessionId);
   }
 
   getRevealData(jobId: string, revealToken: string): RevealDataResponse {
@@ -1210,18 +1210,16 @@ export class QueueKeeperCore {
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
       expiresAt: job.expiresAt,
-      selectedRunnerAddress: job.selectedRunnerAddress ?? undefined,
-      acceptedRunnerAddress: job.acceptedRunnerAddress ?? undefined,
+      selectedRunnerAddress: canReveal ? job.selectedRunnerAddress ?? undefined : undefined,
+      acceptedRunnerAddress: canReveal ? job.acceptedRunnerAddress ?? undefined : undefined,
       onchainJobId: (chain.onchainJobId as string | null | undefined) ?? null,
       plannerPreview: {
         action: job.plannerAction,
         reason: job.plannerReason,
-        selectedRunnerAddress: job.selectedRunnerAddress ?? undefined
+        selectedRunnerAddress: canReveal ? job.selectedRunnerAddress ?? undefined : undefined
       },
       plannerProvider: job.plannerProvider,
       disputeStatus: job.disputeStatus,
-      buyerSessionToken: viewer === "buyer" && auth.buyerToken ? auth.buyerToken : undefined,
-      revealToken: viewer === "runner" && auth.revealToken ? auth.revealToken : undefined,
       heartbeatIntervalSeconds: job.heartbeatIntervalSeconds,
       heartbeatCount: job.heartbeatCount,
       reviewWindowsSummary: `${job.heartbeatIntervalSeconds}s heartbeat cadence with buyer review + timeout auto-release`,
@@ -1336,11 +1334,12 @@ export class QueueKeeperCore {
     return Boolean(row);
   }
 
-  private mapVerificationSession(row: VerificationSessionRow): SelfVerificationSessionView {
+  private mapVerificationSession(row: VerificationSessionRow, accessToken?: string): SelfVerificationSessionView {
     return {
       sessionId: String(row.id),
       jobId: String(row.job_id),
       runnerAddress: String(row.runner_address),
+      accessToken,
       scope: String(row.scope),
       appName: String(row.app_name),
       endpoint: String(row.endpoint),
@@ -1354,6 +1353,16 @@ export class QueueKeeperCore {
       verifiedAt: row.verified_at ? String(row.verified_at) : null,
       reason: row.reason ? String(row.reason) : null
     };
+  }
+
+  private getVerificationSessionRow(sessionId: string) {
+    const row = this.db.prepare("SELECT * FROM verification_sessions WHERE id = ?1").get(sessionId) as VerificationSessionRow | undefined;
+    if (!row) throw this.error("NOT_FOUND", `Verification session ${sessionId} was not found.`);
+    return row;
+  }
+
+  private hasSessionAccess(row: VerificationSessionRow, accessToken?: string) {
+    return Boolean(accessToken) && sha256Hex(accessToken as string) === String(row.access_token_hash ?? "");
   }
 
   private mapJobRow(row: CoreJobRow): CoreJobRecord {

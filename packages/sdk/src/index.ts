@@ -103,9 +103,10 @@ export class QueueKeeperClient {
     });
   }
 
-  async getSelfSession(sessionId: string) {
+  async getSelfSession(sessionId: string, accessToken?: string) {
     return this.request<SelfVerificationSessionView>(`/v1/self/sessions/${sessionId}`, {
-      method: "GET"
+      method: "GET",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined
     });
   }
 

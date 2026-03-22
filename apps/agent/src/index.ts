@@ -276,7 +276,7 @@ async function previewPlanner(payload: HiddenPlannerRequest) {
 }
 
 async function verifySession(input: { sessionId: string; payload: Record<string, unknown> }) {
-  const session = (await getQueueKeeperCore()).getSelfVerificationSession(input.sessionId);
+  const session = (await getQueueKeeperCore()).getSelfVerificationSessionForVerification(input.sessionId);
   const verifier = new SelfBackendVerifier(
     session.scope,
     session.endpoint,
@@ -302,7 +302,7 @@ async function verifySession(input: { sessionId: string; payload: Record<string,
       reason: result.isValidDetails.isValid ? null : "Self verification did not pass cryptographic validation.",
       resultJson: result
     };
-  } catch (error) {
+  } catch {
     const verification = await getSelfVerifier().verify({
       reference: session.reference,
       proof: input.payload.proof,

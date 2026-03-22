@@ -1,16 +1,13 @@
-import {
-  type AcceptJobRequest,
-  type AcceptJobResponse,
-  type ApproveStageRequest,
-  type BuyerJobFormInput,
-  type DelegationUpdateRequest,
-  type PlannerAction,
-  type QueueProofBundleView,
-  type QueueJobView,
-  type QueueStageKey,
-  type ReleaseStageRequest,
-  type SelfVerificationSessionView,
-  type SubmitProofRequest
+import type {
+  AcceptJobRequest,
+  AcceptJobResponse,
+  ApproveStageRequest,
+  BuyerJobFormInput,
+  DelegationUpdateRequest,
+  PlannerAction,
+  QueueJobView,
+  QueueStageKey,
+  SubmitProofRequest
 } from "@queuekeeper/shared";
 import { QueueKeeperClient } from "@queuekeeper/sdk";
 import { buildPlannerInputFromBuyerForm } from "./demo-data";
@@ -43,6 +40,12 @@ function getApiBaseUrl() {
 function getClient() {
   return new QueueKeeperClient({
     baseUrl: getApiBaseUrl()
+  });
+}
+
+function getLocalClient() {
+  return new QueueKeeperClient({
+    baseUrl: "/api"
   });
 }
 
@@ -92,12 +95,7 @@ export async function requestRunnerAcceptance(payload: AcceptJobRequest): Promis
     acceptanceRecord?: Partial<AcceptJobResponse["acceptanceRecord"]>;
   }>(externalResponse);
 
-  const localResponse = await fetch("/api/jobs/accept", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const localJson = await readJson<AcceptJobResponse>(localResponse);
+  const localJson = await getLocalClient().acceptJob(payload.jobId, payload);
 
   return {
     ...localJson,
@@ -121,8 +119,8 @@ export async function createSelfVerificationSession(jobId: string, runnerAddress
   return getClient().createSelfSession(jobId, runnerAddress);
 }
 
-export async function fetchSelfVerificationSession(sessionId: string) {
-  return getClient().getSelfSession(sessionId);
+export async function fetchSelfVerificationSession(sessionId: string, accessToken?: string) {
+  return getClient().getSelfSession(sessionId, accessToken);
 }
 
 export async function approveDemoStage(jobId: string, request: ApproveStageRequest): Promise<QueueJobView> {

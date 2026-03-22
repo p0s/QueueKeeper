@@ -14,5 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.8"
   }
 }
