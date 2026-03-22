@@ -116,6 +116,18 @@ select {
   gap: 8px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .card {
   position: relative;
   overflow: hidden;
@@ -285,9 +297,16 @@ select {
 
 .hero-card {
   padding: 30px;
+  isolation: isolate;
 }
 
 .hero-card-centered {
+  display: grid;
+}
+
+.hero-card-content {
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 18px;
   justify-items: center;
@@ -299,10 +318,20 @@ select {
   height: 72px;
 }
 
+.mode-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  position: relative;
+  z-index: 3;
+  margin: 0;
+  min-width: 0;
   padding: 8px;
   border-radius: 22px;
   background: var(--panel-muted);
@@ -327,13 +356,31 @@ select {
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
 }
 
+.cta-row.hero-human-actions,
+.compat-strip.hero-agent-actions {
+  display: none;
+}
+
+#landing-mode-human:checked ~ .mode-toggle label[for="landing-mode-human"],
+#landing-mode-agent:checked ~ .mode-toggle label[for="landing-mode-agent"],
 .mode-toggle-button.active {
   background: var(--panel);
   border-color: var(--border);
   color: var(--text);
   box-shadow: var(--inner-shadow);
+}
+
+#landing-mode-human:checked ~ .cta-row.hero-human-actions {
+  display: flex;
+  justify-content: center;
+}
+
+#landing-mode-agent:checked ~ .compat-strip.hero-agent-actions {
+  display: grid;
+  gap: 10px;
 }
 
 .hero-card::before {
@@ -344,6 +391,139 @@ select {
   height: 280px;
   background: var(--hero-glow);
   pointer-events: none;
+}
+
+.hero-queue-background {
+  position: absolute;
+  top: 23%;
+  left: 50%;
+  width: min(620px, 74%);
+  aspect-ratio: 920 / 520;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+.hero-queue-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.hero-queue-svg * {
+  pointer-events: none;
+}
+
+.queue-aura {
+  fill: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.queue-aura-soft {
+  fill: color-mix(in srgb, var(--accent) 2.4%, transparent);
+}
+
+.queue-ground,
+.queue-guide,
+.queue-awning,
+.queue-door-outline,
+.queue-door-frame,
+.queue-host-stand-detail {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.queue-guide {
+  stroke: color-mix(in srgb, var(--accent) 10%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 10;
+}
+
+.queue-ground {
+  stroke: color-mix(in srgb, var(--accent) 16%, transparent);
+  stroke-width: 2.5;
+}
+
+.queue-awning {
+  fill: color-mix(in srgb, var(--accent-soft) 52%, var(--panel));
+  stroke: color-mix(in srgb, var(--accent) 16%, var(--border));
+  stroke-width: 2.5;
+}
+
+.queue-door-outline,
+.queue-door-frame,
+.queue-host-stand-detail {
+  stroke: color-mix(in srgb, var(--accent) 18%, var(--border));
+  stroke-width: 3;
+}
+
+.queue-host-stand {
+  fill: color-mix(in srgb, var(--panel) 72%, transparent);
+  stroke: color-mix(in srgb, var(--accent) 16%, var(--border));
+  stroke-width: 2.5;
+}
+
+.queue-door-light {
+  fill: color-mix(in srgb, var(--accent) 24%, var(--panel));
+  opacity: 0.55;
+}
+
+.queue-figure {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: queueFigureShift 6.8s ease-in-out infinite;
+  animation-delay: var(--queue-delay, 0s);
+}
+
+.queue-figure.lead {
+  animation-duration: 8.4s;
+}
+
+.queue-figure-shadow {
+  fill: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 0.36;
+}
+
+.queue-figure-head {
+  fill: color-mix(in srgb, var(--panel) 94%, var(--bg-alt));
+  stroke: color-mix(in srgb, var(--accent) 18%, var(--border));
+  stroke-width: 2;
+}
+
+.queue-figure-fill {
+  fill: color-mix(in srgb, var(--accent-soft) 62%, var(--panel));
+  stroke: color-mix(in srgb, var(--accent) 16%, var(--border));
+  stroke-width: 2;
+}
+
+.queue-figure.accent .queue-figure-fill {
+  fill: color-mix(in srgb, var(--accent-soft) 40%, var(--panel));
+}
+
+.queue-figure-stroke {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 22%, var(--border));
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.queue-prop {
+  fill: color-mix(in srgb, var(--panel) 74%, var(--accent-soft));
+  stroke: color-mix(in srgb, var(--accent) 14%, var(--border));
+  stroke-width: 2;
+}
+
+.queue-prop-small {
+  opacity: 0.82;
+}
+
+.queue-figure.lead .queue-figure-head,
+.queue-figure.lead .queue-figure-fill {
+  animation: queueLeadPulse 8.4s ease-in-out infinite;
+  animation-delay: var(--queue-delay, 0s);
 }
 
 .hero-title {
@@ -714,6 +894,11 @@ select {
   gap: 8px;
 }
 
+.task-feed-empty {
+  gap: 18px;
+  max-width: 760px;
+}
+
 .evidence-section-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -955,6 +1140,44 @@ select.input {
   }
 }
 
+@keyframes queueFigureShift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  24% {
+    transform: translate3d(1px, -1px, 0) rotate(-0.5deg);
+  }
+
+  52% {
+    transform: translate3d(5px, 0, 0) rotate(0.7deg);
+  }
+
+  78% {
+    transform: translate3d(2px, 1px, 0) rotate(-0.25deg);
+  }
+}
+
+@keyframes queueLeadPulse {
+  0%,
+  100% {
+    opacity: 0.92;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-figure,
+  .queue-figure.lead .queue-figure-head,
+  .queue-figure.lead .queue-figure-fill {
+    animation: none;
+  }
+}
+
 @media (min-width: 769px) {
   .sticky-footer {
     position: static;
@@ -994,6 +1217,14 @@ select.input {
 
   .hero-card {
     padding: 22px;
+  }
+
+  .hero-queue-background {
+    top: 29%;
+    left: 50%;
+    width: min(500px, 94%);
+    transform: translateX(-50%);
+    opacity: 0.82;
   }
 
   .hero-title,

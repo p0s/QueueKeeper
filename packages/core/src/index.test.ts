@@ -318,6 +318,31 @@ test("public list exposes verified-pool jobs and hides direct dispatch jobs", ()
   assert.ok(!publicJobs.some((job) => job.title === "Direct only"));
 });
 
+test("seed restores one visible verified-pool job when none remain public", () => {
+  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "queuekeeper-core-seeded-visible-"));
+  const options = {
+    dataDir: baseDir,
+    databasePath: path.join(baseDir, "queuekeeper.sqlite"),
+    objectDir: path.join(baseDir, "objects"),
+    encryptionKey: Buffer.alloc(32, 7),
+    arbiterToken: "arbiter-token"
+  } as const;
+
+  const firstCore = new QueueKeeperCore(options);
+  const seededPool = firstCore.listJobs("public").jobs.find((job) => job.mode === "VERIFIED_POOL");
+  assert.ok(seededPool);
+
+  firstCore.acceptJob(seededPool.id, "0xa11ce0000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "self-seed-ref"
+  });
+  assert.equal(firstCore.listJobs("public").jobs.length, 0);
+
+  const restartedCore = new QueueKeeperCore(options);
+  assert.ok(restartedCore.listJobs("public").jobs.some((job) => job.mode === "VERIFIED_POOL"));
+});
+
 test("task aliases expose the same core state", () => {
   const core = createTestCore("tasks");
   const draft = createDraft(core, { principalMode: "AGENT" });

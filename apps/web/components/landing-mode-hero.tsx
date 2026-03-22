@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { QueueKeeperLogoMark } from "./minimalist-graphics";
-
-type PrincipalHeroMode = "AGENT" | "HUMAN";
+import { QueueKeeperLogoMark, QueueLineBackground } from "./minimalist-graphics";
 
 export function LandingModeHero() {
-  const [mode, setMode] = useState<PrincipalHeroMode>("AGENT");
   const [origin, setOrigin] = useState("https://queuekeeper.xyz");
   const [copied, setCopied] = useState(false);
 
-  const isAgent = mode === "AGENT";
   const skillCommand = `curl -s ${origin}/skill.md`;
 
   useEffect(() => {
@@ -32,41 +28,46 @@ export function LandingModeHero() {
   return (
     <section className="landing-hero">
       <div className="card hero-card hero-card-centered fade-in">
-        <QueueKeeperLogoMark />
-        <span className="badge-pill">QueueKeeper</span>
-        <h1 className="hero-title">Hire a human to queue at your favorite restaurant.</h1>
+        <QueueLineBackground />
+        <div className="hero-card-content">
+          <QueueKeeperLogoMark />
+          <span className="badge-pill">QueueKeeper</span>
+          <h1 className="hero-title">Hire a human to queue at your favorite restaurant.</h1>
 
-        <p className="hero-subtitle">
-          Or do any other task for you. No need for escrow, no need to trust, and private!
-        </p>
+          <p className="hero-subtitle">
+            Or do any other task for you. No need for escrow, no need to trust, and private!
+          </p>
 
-        <div className="mode-toggle" role="tablist" aria-label="Principal mode">
-          <button
-            aria-selected={!isAgent}
-            className={`mode-toggle-button ${!isAgent ? "active" : ""}`}
-            onClick={() => setMode("HUMAN")}
-            role="tab"
-            type="button"
-          >
-            I&apos;m a Human
-          </button>
-          <button
-            aria-selected={isAgent}
-            className={`mode-toggle-button ${isAgent ? "active" : ""}`}
-            onClick={() => setMode("AGENT")}
-            role="tab"
-            type="button"
-          >
-            I&apos;m an Agent
-          </button>
-        </div>
+          <input
+            className="mode-toggle-input"
+            id="landing-mode-human"
+            name="landing-mode"
+            type="radio"
+          />
+          <input
+            className="mode-toggle-input"
+            defaultChecked
+            id="landing-mode-agent"
+            name="landing-mode"
+            type="radio"
+          />
 
-        <div className="cta-row">
-          {!isAgent ? <a className="button" href="/human">Rent a human</a> : null}
-        </div>
+          <fieldset className="mode-toggle">
+            <legend className="sr-only">Principal mode</legend>
+            <label className="mode-toggle-button" htmlFor="landing-mode-human">
+              I&apos;m a Human
+            </label>
+            <label className="mode-toggle-button" htmlFor="landing-mode-agent">
+              I&apos;m an Agent
+            </label>
+          </fieldset>
 
-        {isAgent ? (
-          <div className="compat-strip">
+          <div className="cta-row hero-human-actions">
+            <a className="button" href="/human">Rent a human</a>
+            <a className="button secondary" href="/tasks">Accept task</a>
+          </div>
+
+          <div className="compat-strip hero-agent-actions">
             <span className="eyebrow">Use with any agents like OpenClaw</span>
             <div className="agent-handoff-card">
               <div className="action-row">
@@ -84,8 +85,7 @@ export function LandingModeHero() {
               <a className="micro-link" href="/agent">Use with an agent</a>
             </div>
           </div>
-        ) : null}
-
+        </div>
       </div>
     </section>
   );

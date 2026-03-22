@@ -1882,8 +1882,10 @@ export class QueueKeeperCore {
       });
     }
 
-    const poolCount = this.db.prepare("SELECT COUNT(*) as count FROM jobs WHERE mode = 'VERIFIED_POOL'").get() as { count: number };
-    if (poolCount.count === 0) {
+    const visiblePoolCount = this.db.prepare(
+      "SELECT COUNT(*) as count FROM jobs WHERE mode = 'VERIFIED_POOL' AND status = 'posted' AND accepted_runner_address IS NULL"
+    ).get() as { count: number };
+    if (visiblePoolCount.count === 0) {
       const poolDraft = this.createJobDraft({
         principalMode: "HUMAN",
         mode: "VERIFIED_POOL",
