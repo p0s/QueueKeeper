@@ -226,6 +226,8 @@ function decryptPayload(key: Buffer, payload: { iv: string; tag: string; ciphert
 }
 
 class EncryptedObjectStore {
+  private readonly dirtyObjectKeys = new Set<string>();
+
   constructor(private readonly baseDir: string, private readonly key: Buffer) {
     ensureDir(baseDir);
   }
@@ -236,6 +238,7 @@ class EncryptedObjectStore {
     ensureDir(path.dirname(objectPath));
     const encrypted = encryptPayload(this.key, Buffer.from(JSON.stringify(payload)));
     fs.writeFileSync(objectPath, JSON.stringify(encrypted));
+    this.dirtyObjectKeys.add(objectKey);
     return objectKey;
   }
 
@@ -243,6 +246,12 @@ class EncryptedObjectStore {
     const objectPath = path.join(this.baseDir, objectKey);
     const encrypted = parseJson<{ iv: string; tag: string; ciphertext: string }>(fs.readFileSync(objectPath, "utf8"));
     return JSON.parse(decryptPayload(this.key, encrypted).toString("utf8")) as T;
+  }
+
+  consumeDirtyObjectKeys() {
+    const keys = [...this.dirtyObjectKeys];
+    this.dirtyObjectKeys.clear();
+    return keys;
   }
 }
 
@@ -1392,7 +1401,7 @@ export class QueueKeeperCore {
           },
           PlannerPreviewRequest: {
             type: "object",
-            required: ["scoutFee", "completionBonus", "maxBudget", "hiddenExactLocation"],
+            required: ["hiddenExactLocation"],
             anyOf: [
               { required: ["candidates"] },
               { required: ["selectedRunnerAddress"] }
@@ -1403,11 +1412,11 @@ export class QueueKeeperCore {
                 enum: ["low", "medium", "high"],
                 description: "Optional. Defaults to medium if omitted."
               },
-              scoutFee: { type: "number" },
-              arrivalFee: { type: "number" },
-              heartbeatFee: { type: "number" },
-              completionBonus: { type: "number" },
-              maxBudget: { type: "number" },
+              scoutFee: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              arrivalFee: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              heartbeatFee: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              completionBonus: { type: "number", description: "Optional. Defaults to 2 cUSD." },
+              maxBudget: { type: "number", description: "Optional. Defaults to 5 cUSD or the sum of supplied stages, whichever is higher." },
               hiddenExactLocation: { type: "string" },
               hiddenNotes: { type: "string" },
               privateFallbackInstructions: { type: "string" },
@@ -1446,12 +1455,7 @@ export class QueueKeeperCore {
               "title",
               "coarseArea",
               "exactLocation",
-              "hiddenNotes",
-              "maxSpendUsd",
-              "scoutFeeUsd",
-              "arrivalFeeUsd",
-              "heartbeatFeeUsd",
-              "completionFeeUsd"
+              "hiddenNotes"
             ],
             anyOf: [
               { required: ["expiresInMinutes"] },
@@ -1476,11 +1480,11 @@ export class QueueKeeperCore {
               sensitiveBuyerPreferences: { type: "string" },
               handoffSecret: { type: "string" },
               waitingToleranceMinutes: { type: "integer" },
-              maxSpendUsd: { type: "number" },
-              scoutFeeUsd: { type: "number" },
-              arrivalFeeUsd: { type: "number" },
-              heartbeatFeeUsd: { type: "number" },
-              completionFeeUsd: { type: "number" },
+              maxSpendUsd: { type: "number", description: "Optional. Defaults to 5 cUSD or the sum of supplied stages, whichever is higher." },
+              scoutFeeUsd: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              arrivalFeeUsd: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              heartbeatFeeUsd: { type: "number", description: "Optional. Defaults to 1 cUSD." },
+              completionFeeUsd: { type: "number", description: "Optional. Defaults to 2 cUSD." },
               expiresInMinutes: {
                 type: "integer",
                 description: "Preferred expiry input."
@@ -2414,6 +2418,6 @@ export { handleQueueKeeperApi } from "./router";
 export async function persistQueueKeeperCore(core: QueueKeeperCore) {
   const sync = coreRemoteSync.get(core);
   if (sync) {
-    await persistSupabaseState(sync);
+    await persistSupabaseState(sync, core.objectStore.consumeDirtyObjectKeys());
   }
 }

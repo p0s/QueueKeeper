@@ -142,7 +142,7 @@ QueueKeeper pre-funds task capacity, keeps the exact destination private until v
 6. Read the structured agent log:
 \`GET ${normalizedOrigin}/api/v1/tasks/:taskId/agent/log\`
 
-## Required request bodies
+## Example request bodies
 
 Planner preview request:
 
@@ -155,6 +155,7 @@ ${jsonCodeBlock(draftRequestExample)}
 Notes:
 
 - \`expiresInMinutes\` must be an integer minute count. If you already have a timestamp, the draft endpoint also accepts \`expiresAt\` as an ISO-8601 time.
+- If you omit the payout ladder entirely, QueueKeeper defaults to a low-budget plan: scout 1, arrival 1, heartbeat 1, completion 2, max budget 5.
 - Planner preview requires a \`candidates\` array. If you only have one chosen runner, you can send \`selectedRunnerAddress\` plus optional \`score\`, \`verifiedHuman\`, and \`etaMinutes\` instead.
 - Reuse the planner response as \`plannerPreview\` when you create the draft.
 

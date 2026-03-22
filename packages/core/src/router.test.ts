@@ -112,6 +112,44 @@ test("planner preview returns a clear validation error when no runner candidates
   assert.equal(json.error.message, "Planner preview requires a candidates array or selectedRunnerAddress.");
 });
 
+test("planner preview applies the low default payout ladder when omitted", async () => {
+  installTestCore("planner-defaults");
+
+  let plannedInput: PlannerInput | undefined;
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/planner/preview", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      hiddenExactLocation: "North entrance merch line",
+      selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+    })
+  }), {
+    plan: async (input) => {
+      plannedInput = input;
+      return {
+        summary: {
+          action: "scout-only",
+          reason: "Default ladder test.",
+          selectedRunnerAddress: input.candidates[0]?.address
+        },
+        meta: {
+          provider: "test"
+        }
+      };
+    },
+    verify
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(plannedInput?.scoutFee, 1);
+  assert.equal(plannedInput?.arrivalFee, 1);
+  assert.equal(plannedInput?.heartbeatFee, 1);
+  assert.equal(plannedInput?.completionBonus, 2);
+  assert.equal(plannedInput?.maxBudget, 5);
+});
+
 test("task draft accepts expiresAt and numeric strings", async () => {
   installTestCore("draft");
 
@@ -156,6 +194,86 @@ test("task draft accepts expiresAt and numeric strings", async () => {
   assert.equal(json.job.title, "Agent-created task");
   assert.ok(json.buyerToken);
   assert.ok(Number.isFinite(Date.parse(json.job.expiresAt)));
+});
+
+test("task draft applies the low default payout ladder when omitted", async () => {
+  installTestCore("draft-defaults");
+
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      mode: "VERIFIED_POOL",
+      principalMode: "AGENT",
+      title: "Agent-created defaulted task",
+      coarseArea: "Moscone West / Howard St",
+      exactLocation: "North entrance merch line",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run when the request only creates a draft.");
+    },
+    verify
+  });
+
+  assert.equal(response.status, 200);
+  const json = await response.json() as {
+    job: {
+      maxSpend: string;
+      stages: Array<{ key: string; amount?: string }>;
+    };
+  };
+  assert.equal(json.job.maxSpend, "5.00 cUSD");
+  assert.equal(json.job.stages.find((stage) => stage.key === "scout")?.amount, "1.00 cUSD");
+  assert.equal(json.job.stages.find((stage) => stage.key === "arrival")?.amount, "1.00 cUSD");
+  assert.equal(json.job.stages.find((stage) => stage.key === "heartbeat")?.amount, "1.00 cUSD");
+  assert.equal(json.job.stages.find((stage) => stage.key === "completion")?.amount, "2.00 cUSD");
+});
+
+test("post task accepts a completely empty body", async () => {
+  installTestCore("post-empty-body");
+
+  const draftResponse = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      mode: "VERIFIED_POOL",
+      principalMode: "AGENT",
+      title: "Post empty body",
+      coarseArea: "Seattle / Pike St",
+      exactLocation: "Starbucks, 1124 Pike St, Seattle, WA 98101",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during draft creation.");
+    },
+    verify
+  });
+
+  const draft = await draftResponse.json() as { buyerToken: string; job: { id: string } };
+  const postResponse = await handleQueueKeeperApi(new Request(`https://queuekeeper.test/api/v1/tasks/${draft.job.id}/post`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${draft.buyerToken}`
+    }
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during post.");
+    },
+    verify
+  });
+
+  assert.equal(postResponse.status, 200);
+  const posted = await postResponse.json() as { job: { status: string } };
+  assert.equal(posted.job.status, "posted");
 });
 
 test("openapi advertises the externally reachable /api/v1 server base", async () => {

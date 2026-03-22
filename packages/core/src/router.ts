@@ -39,6 +39,13 @@ type JsonRecord = Record<string, unknown>;
 const plannerActions = new Set<PlannerAction>(["scout-only", "scout-then-hold", "hold-now", "abort"]);
 const principalModes = new Set<PrincipalMode>(["HUMAN", "AGENT"]);
 const queueJobModes = new Set<QueueJobMode>(["DIRECT_DISPATCH", "VERIFIED_POOL"]);
+const defaultPayoutLadder = {
+  scout: 1,
+  arrival: 1,
+  heartbeat: 1,
+  completion: 2,
+  maxBudget: 5
+} as const;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -48,6 +55,12 @@ function json(status: number, body: unknown) {
       "cache-control": "no-store, max-age=0"
     }
   });
+}
+
+async function readOptionalJsonBody(request: Request) {
+  const raw = await request.text();
+  if (!raw.trim()) return {} as Record<string, unknown>;
+  return JSON.parse(raw) as Record<string, unknown>;
 }
 
 function readBearer(request: Request) {
@@ -254,13 +267,20 @@ function normalizePlannerPreview(value: unknown): PublicPlannerSummary | undefin
 
 function normalizePlannerInput(value: unknown): PlannerInput {
   const body = ensureRecord(value);
+  const scoutFee = readOptionalNumber(body, ["scoutFee", "scoutFeeUsd"], "scoutFee") ?? defaultPayoutLadder.scout;
+  const arrivalFee = readOptionalNumber(body, ["arrivalFee", "arrivalFeeUsd"], "arrivalFee") ?? defaultPayoutLadder.arrival;
+  const heartbeatFee = readOptionalNumber(body, ["heartbeatFee", "heartbeatFeeUsd"], "heartbeatFee") ?? defaultPayoutLadder.heartbeat;
+  const completionBonus = readOptionalNumber(body, ["completionBonus", "completionFeeUsd"], "completionBonus") ?? defaultPayoutLadder.completion;
+  const maxBudget = readOptionalNumber(body, ["maxBudget", "maxSpendUsd"], "maxBudget")
+    ?? Math.max(defaultPayoutLadder.maxBudget, scoutFee + arrivalFee + heartbeatFee + completionBonus);
+
   return {
     urgency: deriveUrgency(body),
-    scoutFee: readRequiredNumber(body, ["scoutFee", "scoutFeeUsd"], "scoutFee"),
-    arrivalFee: readOptionalNumber(body, ["arrivalFee", "arrivalFeeUsd"], "arrivalFee"),
-    heartbeatFee: readOptionalNumber(body, ["heartbeatFee", "heartbeatFeeUsd"], "heartbeatFee"),
-    completionBonus: readRequiredNumber(body, ["completionBonus", "completionFeeUsd"], "completionBonus"),
-    maxBudget: readRequiredNumber(body, ["maxBudget", "maxSpendUsd"], "maxBudget"),
+    scoutFee,
+    arrivalFee,
+    heartbeatFee,
+    completionBonus,
+    maxBudget,
     hiddenExactLocation: readRequiredString(body, ["hiddenExactLocation", "exactLocation"], "hiddenExactLocation"),
     hiddenNotes: readOptionalString(body, ["hiddenNotes", "notes"], "hiddenNotes"),
     privateFallbackInstructions: readOptionalString(body, ["privateFallbackInstructions", "fallbackInstructions"], "privateFallbackInstructions"),
@@ -273,6 +293,13 @@ function normalizePlannerInput(value: unknown): PlannerInput {
 function normalizeBuyerJobFormInput(value: unknown) {
   const body = ensureRecord(value);
   const plannerPreview = normalizePlannerPreview(body.plannerPreview);
+  const scoutFeeUsd = readOptionalNumber(body, ["scoutFeeUsd", "scoutFee"], "scoutFeeUsd") ?? defaultPayoutLadder.scout;
+  const arrivalFeeUsd = readOptionalNumber(body, ["arrivalFeeUsd", "arrivalFee"], "arrivalFeeUsd") ?? defaultPayoutLadder.arrival;
+  const heartbeatFeeUsd = readOptionalNumber(body, ["heartbeatFeeUsd", "heartbeatFee"], "heartbeatFeeUsd") ?? defaultPayoutLadder.heartbeat;
+  const completionFeeUsd = readOptionalNumber(body, ["completionFeeUsd", "completionBonus"], "completionFeeUsd") ?? defaultPayoutLadder.completion;
+  const maxSpendUsd = readOptionalNumber(body, ["maxSpendUsd", "maxBudget"], "maxSpendUsd")
+    ?? Math.max(defaultPayoutLadder.maxBudget, scoutFeeUsd + arrivalFeeUsd + heartbeatFeeUsd + completionFeeUsd);
+
   return {
     payload: {
       id: readOptionalString(body, ["id"], "id"),
@@ -287,11 +314,11 @@ function normalizeBuyerJobFormInput(value: unknown) {
       sensitiveBuyerPreferences: readOptionalString(body, ["sensitiveBuyerPreferences"], "sensitiveBuyerPreferences"),
       handoffSecret: readOptionalString(body, ["handoffSecret"], "handoffSecret"),
       waitingToleranceMinutes: readOptionalInteger(body, ["waitingToleranceMinutes"], "waitingToleranceMinutes"),
-      maxSpendUsd: readRequiredNumber(body, ["maxSpendUsd", "maxBudget"], "maxSpendUsd"),
-      scoutFeeUsd: readRequiredNumber(body, ["scoutFeeUsd", "scoutFee"], "scoutFeeUsd"),
-      arrivalFeeUsd: readRequiredNumber(body, ["arrivalFeeUsd", "arrivalFee"], "arrivalFeeUsd"),
-      heartbeatFeeUsd: readRequiredNumber(body, ["heartbeatFeeUsd", "heartbeatFee"], "heartbeatFeeUsd"),
-      completionFeeUsd: readRequiredNumber(body, ["completionFeeUsd", "completionBonus"], "completionFeeUsd"),
+      maxSpendUsd,
+      scoutFeeUsd,
+      arrivalFeeUsd,
+      heartbeatFeeUsd,
+      completionFeeUsd,
       expiresInMinutes: readRequiredExpiryMinutes(body),
       heartbeatCount: readOptionalInteger(body, ["heartbeatCount"], "heartbeatCount"),
       heartbeatIntervalSeconds: readOptionalInteger(body, ["heartbeatIntervalSeconds"], "heartbeatIntervalSeconds"),
@@ -425,7 +452,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       }
 
       if (request.method === "POST" && segments[3] === "post") {
-        const payload = (await request.json()) as Record<string, unknown>;
+        const payload = await readOptionalJsonBody(request);
         const response = core.postTask({
           jobId,
           buyerToken: bearer ?? "",
@@ -555,7 +582,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       }
 
       if (request.method === "POST" && segments[3] === "stop") {
-        const payload = (await request.json()) as { note?: string };
+        const payload = await readOptionalJsonBody(request) as { note?: string };
         const response = core.stopTask(jobId, {
           buyerToken: bearer ?? "",
           note: payload.note
@@ -575,6 +602,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       }
 
       if (request.method === "POST" && segments[3] === "agent" && segments[4] === "decide") {
+        await readOptionalJsonBody(request);
         const context = core.getAgentDecisionContext(jobId, bearer ?? "");
         const planner = await deps.plan(context);
         const task = core.getTask(jobId, "buyer", { buyerToken: bearer ?? "" });

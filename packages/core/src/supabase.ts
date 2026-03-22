@@ -17,20 +17,6 @@ function ensureDir(dirPath: string) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function walkFiles(dirPath: string): string[] {
-  if (!fs.existsSync(dirPath)) return [];
-  const output: string[] = [];
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-    const next = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) {
-      output.push(...walkFiles(next));
-    } else if (entry.isFile()) {
-      output.push(next);
-    }
-  }
-  return output;
-}
-
 export function getSupabaseStateConfig(): SupabaseStateConfig | null {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -82,7 +68,7 @@ export async function hydrateSupabaseState(config: SupabaseStateConfig) {
   await walk(config.objectsPrefix, config.objectDir);
 }
 
-export async function persistSupabaseState(config: SupabaseStateConfig) {
+export async function persistSupabaseState(config: SupabaseStateConfig, dirtyObjectKeys: string[] = []) {
   if (fs.existsSync(config.dbPath)) {
     await config.client.storage.from(config.bucket).upload(config.stateKey, fs.readFileSync(config.dbPath), {
       upsert: true,
@@ -90,9 +76,10 @@ export async function persistSupabaseState(config: SupabaseStateConfig) {
     });
   }
 
-  for (const filePath of walkFiles(config.objectDir)) {
-    const relative = path.relative(config.objectDir, filePath);
-    await config.client.storage.from(config.bucket).upload(`${config.objectsPrefix}/${relative}`, fs.readFileSync(filePath), {
+  for (const objectKey of dirtyObjectKeys) {
+    const filePath = path.join(config.objectDir, objectKey);
+    if (!fs.existsSync(filePath)) continue;
+    await config.client.storage.from(config.bucket).upload(`${config.objectsPrefix}/${objectKey}`, fs.readFileSync(filePath), {
       upsert: true,
       contentType: "application/json"
     });
