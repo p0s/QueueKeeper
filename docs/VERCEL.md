@@ -20,6 +20,12 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `NEXT_PUBLIC_CELO_RPC_URL=https://forno.celo-sepolia.celo-testnet.org`
 - `NEXT_PUBLIC_QUEUEKEEPER_ESCROW_ADDRESS=0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`
 - `NEXT_PUBLIC_QUEUEKEEPER_TOKEN_ADDRESS=0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6`
+- `NEXT_PUBLIC_QUEUEKEEPER_AGENT_NAME`
+- `NEXT_PUBLIC_QUEUEKEEPER_AGENT_ROLE`
+- `NEXT_PUBLIC_QUEUEKEEPER_AGENT_MODEL`
+- `NEXT_PUBLIC_QUEUEKEEPER_AGENT_WALLET`
+- `NEXT_PUBLIC_QUEUEKEEPER_AGENT_ENS` *(optional, once the ENS name is registered)*
+- `NEXT_PUBLIC_SYNTHESIS_AGENT_REGISTRATION_URL`
 - `NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://celo-sepolia.blockscout.com`
 - `QUEUEKEEPER_ENCRYPTION_KEY`
 - `QUEUEKEEPER_INTERNAL_API_TOKEN`
@@ -31,6 +37,7 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `SELF_MOCK_PASSPORT`
 - `SELF_API_URL`
 - `SELF_API_KEY` *(if required by your Self backend)*
+- `UNISWAP_API_KEY` *(if you wire the Uniswap sidecar)*
 - `NEXT_PUBLIC_SELF_APP_NAME`
 - `NEXT_PUBLIC_SELF_SCOPE`
 - `NEXT_PUBLIC_SELF_ENDPOINT_TYPE=staging_https`

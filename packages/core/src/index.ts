@@ -999,13 +999,13 @@ export class QueueKeeperCore {
 
   getAgentIdentity(): AgentIdentityView {
     return {
-      name: "QueueKeeper Planner",
-      role: "Private Scout-and-Hold Procurement Agent",
+      name: process.env.NEXT_PUBLIC_QUEUEKEEPER_AGENT_NAME ?? process.env.QUEUEKEEPER_AGENT_NAME ?? "QueueKeeper Planner",
+      role: process.env.NEXT_PUBLIC_QUEUEKEEPER_AGENT_ROLE ?? process.env.QUEUEKEEPER_AGENT_ROLE ?? "Private Scout-and-Hold Procurement Agent",
       mode: "AGENT",
       harness: "codex-cli",
-      model: process.env.VENICE_API_KEY ? "venice-live" : "queuekeeper-deterministic-planner",
-      walletAddress: process.env.CELO_SEPOLIA_TEST_ADDRESS ?? null,
-      ensName: null,
+      model: process.env.NEXT_PUBLIC_QUEUEKEEPER_AGENT_MODEL ?? process.env.QUEUEKEEPER_AGENT_MODEL ?? (process.env.VENICE_API_KEY ? "venice-live" : "queuekeeper-deterministic-planner"),
+      walletAddress: process.env.NEXT_PUBLIC_QUEUEKEEPER_AGENT_WALLET ?? process.env.QUEUEKEEPER_AGENT_WALLET ?? process.env.CELO_SEPOLIA_TEST_ADDRESS ?? null,
+      ensName: process.env.NEXT_PUBLIC_QUEUEKEEPER_AGENT_ENS ?? process.env.QUEUEKEEPER_AGENT_ENS ?? null,
       registrationUrl: process.env.NEXT_PUBLIC_SYNTHESIS_AGENT_REGISTRATION_URL ?? process.env.SYNTHESIS_AGENT_REGISTRATION_URL ?? null,
       receiptPolicy: "Pay only for the next verified increment, never for the whole promise.",
       spendPolicy: "Bounded by task scope, token, expiry, and stage budget.",
@@ -1155,15 +1155,17 @@ export class QueueKeeperCore {
         id: "ens",
         label: "ENS display layer",
         sponsor: "ENS",
-        status: "partial",
+        status: identity.ensName ? "live" : "partial",
         summary: "Identity surfaces can resolve ENS names with clean short-address fallback."
       },
       {
         id: "uniswap",
         label: "Budget normalization swap path",
         sponsor: "Uniswap",
-        status: "planned",
-        summary: "Stablecoin budget normalization is reserved for the next sponsor pass."
+        status: process.env.UNISWAP_API_KEY ? "partial" : "planned",
+        summary: process.env.UNISWAP_API_KEY
+          ? "Uniswap API credentials are configured; live swap execution is the remaining step."
+          : "Stablecoin budget normalization is reserved for the next sponsor pass."
       },
       {
         id: "x402",
