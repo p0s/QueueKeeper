@@ -386,6 +386,40 @@ select {
   font-weight: 700;
 }
 
+.agent-handoff-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+}
+
+.command-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.command-block {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 82%, var(--bg-alt));
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.copy-button {
+  min-width: 112px;
+}
+
 .cta-row {
   display: flex;
   gap: 14px;
@@ -929,8 +963,13 @@ select.input {
 
   .button,
   .cta-row .button,
-  .actions-inline .button {
+  .actions-inline .button,
+  .command-row .button {
     width: 100%;
+  }
+
+  .command-row {
+    grid-template-columns: 1fr;
   }
 
   .theme-toggle-shell {

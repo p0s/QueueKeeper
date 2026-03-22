@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AgentIdentityView } from "@queuekeeper/shared";
 import { AgentIdentityCard } from "./agent-identity-card";
 
@@ -23,8 +23,27 @@ export function LandingModeHero({
   sponsorStatus: SponsorStatus;
 }) {
   const [mode, setMode] = useState<PrincipalHeroMode>("AGENT");
+  const [origin, setOrigin] = useState("https://queuekeeper.xyz");
+  const [copied, setCopied] = useState(false);
 
   const isAgent = mode === "AGENT";
+  const skillCommand = `curl -s ${origin}/skill.md`;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
+  async function copySkillCommand() {
+    try {
+      await navigator.clipboard.writeText(skillCommand);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <section className="hero-grid landing-hero">
@@ -80,6 +99,21 @@ export function LandingModeHero({
               <span className="compat-pill">Codex</span>
               <span className="compat-pill">API agents</span>
               <span className="compat-pill">Custom runtimes</span>
+            </div>
+            <div className="agent-handoff-card">
+              <div className="action-row">
+                <div className="stack-tight">
+                  <span className="eyebrow">Hand off to your agent</span>
+                  <strong>Public agent entrypoint</strong>
+                </div>
+                <a className="button secondary" href="/skill.md" rel="noreferrer" target="_blank">Open skill.md</a>
+              </div>
+              <div className="command-row">
+                <code className="command-block">{skillCommand}</code>
+                <button className="button secondary copy-button" onClick={copySkillCommand} type="button">
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
