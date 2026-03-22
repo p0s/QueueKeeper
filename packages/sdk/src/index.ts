@@ -45,7 +45,8 @@ export class QueueKeeperClient {
 
   constructor(options: QueueKeeperClientOptions) {
     this.baseUrl = trimTrailingSlash(options.baseUrl);
-    this.fetchFn = options.fetchFn ?? fetch;
+    const resolvedFetch = options.fetchFn ?? globalThis.fetch;
+    this.fetchFn = resolvedFetch.bind(globalThis);
   }
 
   async previewPlanner(input: PlannerInput) {

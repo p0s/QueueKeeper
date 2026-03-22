@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPublicClient, http, isAddress, type Address } from "viem";
+import { createPublicClient, getAddress, http, isAddress, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
@@ -33,7 +33,7 @@ async function lookupEnsResolution(rawValue: string): Promise<EnsResolution> {
     if (isAddress(value)) {
       const ensName = await ensClient.getEnsName({ address: value as Address });
       return {
-        address: value as Address,
+        address: getAddress(value),
         ensName: ensName ?? null,
         error: null
       };

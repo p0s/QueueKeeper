@@ -117,6 +117,7 @@ export function RunnerJobDemo({
   const runnerIdentity = useEnsIdentity(runnerAddress);
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
   const nextAction = resolveRunnerAction(job, liveSelfMode, selfSession, nextProofStage);
+  const needsRunnerIdentitySetup = !job.acceptedRunnerAddress;
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
@@ -295,6 +296,40 @@ export function RunnerJobDemo({
           </div>
         </section>
 
+        {needsRunnerIdentitySetup ? (
+          <section className="card">
+            <div className="action-row">
+              <div className="stack-tight">
+                <span className="eyebrow">Runner identity</span>
+                <h2 className="section-title">Who is taking the task</h2>
+              </div>
+              <span className="chip info">Standard flow</span>
+            </div>
+            <div className="field-grid" style={{ marginTop: 12 }}>
+              <label className="field">
+                <span>Runner address or ENS</span>
+                <input className="input" value={runnerAddress} onChange={(event) => setRunnerAddress(event.target.value)} />
+                <span className="muted">
+                  {runnerIdentity.ensName
+                    ? `Resolved ENS: ${runnerIdentity.ensName}`
+                    : runnerIdentity.address
+                      ? `Resolved address: ${runnerIdentity.address}`
+                      : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
+                </span>
+              </label>
+              <label className="field">
+                <span>Verification reference</span>
+                <input className="input" value={verificationReference} onChange={(event) => setVerificationReference(event.target.value)} />
+                <span className="muted">The default demo runner address works as-is for the hosted flow.</span>
+              </label>
+            </div>
+            <label className="checkbox-row" style={{ marginTop: 12 }}>
+              <input checked={sendLiveTx} onChange={(event) => setSendLiveTx(event.target.checked)} type="checkbox" />
+              <span>Also try the live escrow contract if an onchain job id is cached in this browser.</span>
+            </label>
+          </section>
+        ) : null}
+
         <VerificationCard verification={job.runnerVerification} />
         {liveSelfMode && selfSession ? (
           <div className="card">
@@ -401,31 +436,6 @@ export function RunnerJobDemo({
         <details className="detail-disclosure">
           <summary>Advanced details</summary>
           <div className="stack" style={{ gap: 16, marginTop: 14 }}>
-            <section className="card alt">
-              <span className="eyebrow">Runner identity input</span>
-              <div className="field-grid" style={{ marginTop: 12 }}>
-                <label className="field">
-                  <span>Runner address or ENS</span>
-                  <input className="input" value={runnerAddress} onChange={(event) => setRunnerAddress(event.target.value)} />
-                  <span className="muted">
-                    {runnerIdentity.ensName
-                      ? `Resolved ENS: ${runnerIdentity.ensName}`
-                      : runnerIdentity.address
-                        ? `Resolved address: ${runnerIdentity.address}`
-                        : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
-                  </span>
-                </label>
-                <label className="field">
-                  <span>Verification reference</span>
-                  <input className="input" value={verificationReference} onChange={(event) => setVerificationReference(event.target.value)} />
-                </label>
-              </div>
-              <label className="checkbox-row" style={{ marginTop: 12 }}>
-                <input checked={sendLiveTx} onChange={(event) => setSendLiveTx(event.target.checked)} type="checkbox" />
-                <span>Also try the live escrow contract if an onchain job id is cached in this browser.</span>
-              </label>
-            </section>
-
             <details className="detail-disclosure">
               <summary>All stage status</summary>
               <div className="grid" style={{ marginTop: 14 }}>
