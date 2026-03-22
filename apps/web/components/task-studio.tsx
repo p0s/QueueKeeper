@@ -9,6 +9,7 @@ import { createLiveJob } from "../lib/chain-client";
 import { resolveAddressOrEns, useEnsIdentity } from "../lib/ens";
 import { setBuyerToken } from "../lib/job-session";
 import { AgentIdentityCard } from "./agent-identity-card";
+import { PrincipalModeTabs } from "./principal-mode-tabs";
 import { UniswapFundingCard } from "./uniswap-funding-card";
 
 type PlannerState = {
@@ -128,6 +129,7 @@ export function TaskStudio({
     <main className="container stack fade-in">
       <section className="card hero-card studio-hero">
         <span className="badge-pill">{principalMode === "AGENT" ? "Agent Mode" : "Human Mode"}</span>
+        <PrincipalModeTabs activeMode={principalMode} />
         <div className="stack" style={{ gap: 12 }}>
           <h1 className="hero-headline hero-headline-tight">
             {principalMode === "AGENT"
@@ -143,6 +145,16 @@ export function TaskStudio({
           <a className="button secondary" href="/tasks">Browse public tasks</a>
           <a className="button secondary" href="/evidence">See live evidence</a>
         </div>
+        {principalMode === "AGENT" ? (
+          <div className="compat-strip">
+            <span className="eyebrow">Agent-compatible control surface</span>
+            <div className="compat-pills">
+              <span className="compat-pill">Headless API</span>
+              <span className="compat-pill">agent.json</span>
+              <span className="compat-pill">Execution log</span>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <div className="dashboard-grid">

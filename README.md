@@ -18,7 +18,7 @@ QueueKeeper is a testnet-first private scout-and-hold procurement product: a hum
 - `apps/web` exposes the same `/api/v1` API locally and uses the same planner/verification boundaries.
 - Human Mode and Agent Mode now exist as distinct product entrypoints.
 - The web UX is now task-first and operations-led:
-  - homepage leads with the concrete procurement story first and the bounded-trust thesis second
+  - homepage starts with a Human/Agent selector, concrete procurement story, and sponsor rail
   - `/agent` and `/human` use a staged composer with public/private separation, planner rail, and optional sidecars hidden behind disclosure
   - `/tasks/[taskId]` acts as a next-action-first command center with grouped stages and collapsed advanced receipts
   - `/runner/[jobId]` is optimized around verify → accept → submit next proof

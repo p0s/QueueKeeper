@@ -1,5 +1,5 @@
 import { getQueueKeeperCore } from "@queuekeeper/core";
-import { AgentIdentityCard } from "../components/agent-identity-card";
+import { LandingModeHero } from "../components/landing-mode-hero";
 import { TaskFeedBoard } from "../components/task-feed-board";
 import { getAgentIdentityManifest } from "../lib/agent-manifest";
 
@@ -101,28 +101,7 @@ export default async function HomePage() {
 
   return (
     <main className="container hero-shell">
-      <section className="hero-grid landing-hero">
-        <div className="card hero-card fade-in">
-          <span className="badge-pill">Private scout-and-hold procurement</span>
-          <div className="stack" style={{ gap: 14 }}>
-            <h1 className="hero-headline hero-headline-tight">
-              Privately procure a verified human to scout, hold, or hand off scarce real-world access.
-            </h1>
-            <p className="hero-copy muted">
-              Pre-fund a task, reveal the destination only after verified acceptance, and pay only for each proof-backed step.
-            </p>
-            <p className="hero-tertiary">Bound trust to the next verified increment.</p>
-          </div>
-          <div className="cta-row">
-            <a className="button" href="/agent">Start in Agent Mode</a>
-            <a className="button secondary" href="/evidence">See live evidence</a>
-          </div>
-        </div>
-
-        <aside className="hero-sidecard fade-in">
-          <AgentIdentityCard compact identity={agentIdentity} />
-        </aside>
-      </section>
+      <LandingModeHero agentIdentity={agentIdentity} sponsorStatus={sponsorStatus} />
 
       <section className="stack fade-in">
         <div>
