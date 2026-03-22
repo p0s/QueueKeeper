@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AgentIdentityView, BuyerJobFormInput, FundingNormalizationReceiptRequest, PrincipalMode } from "@queuekeeper/shared";
 import { createAndPostJob, requestPlannerPreview } from "../lib/agent-client";
@@ -47,6 +47,8 @@ export function TaskStudio({
   agentIdentity = getAgentIdentityManifest()
 }: TaskStudioProps) {
   const router = useRouter();
+  const [origin, setOrigin] = useState("https://queuekeeper.xyz");
+  const [copied, setCopied] = useState(false);
   const [form, setForm] = useState<BuyerJobFormInput>({
     ...initialDraft,
     principalMode
@@ -56,6 +58,23 @@ export function TaskStudio({
   const [sendLiveTx, setSendLiveTx] = useState(false);
   const [fundingReceipt, setFundingReceipt] = useState<Omit<FundingNormalizationReceiptRequest, "buyerToken"> | null>(null);
   const runnerIdentity = useEnsIdentity(form.selectedRunnerAddress ?? null);
+  const skillCommand = `curl -s ${origin}/skill.md`;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
+  async function copySkillCommand() {
+    try {
+      await navigator.clipboard.writeText(skillCommand);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   function update<K extends keyof BuyerJobFormInput>(key: K, value: BuyerJobFormInput[K]) {
     setForm((current) => ({
@@ -152,6 +171,21 @@ export function TaskStudio({
               <span className="compat-pill">Headless API</span>
               <span className="compat-pill">agent.json</span>
               <span className="compat-pill">Execution log</span>
+            </div>
+            <div className="agent-handoff-card">
+              <div className="action-row">
+                <div className="stack-tight">
+                  <span className="eyebrow">Hand off to your agent</span>
+                  <strong>curl -s https://queuekeeper.xyz/skill.md</strong>
+                </div>
+                <a className="button secondary" href="/skill.md" rel="noreferrer" target="_blank">Open skill.md</a>
+              </div>
+              <div className="command-row">
+                <code className="command-block">{skillCommand}</code>
+                <button className="button secondary copy-button" onClick={copySkillCommand} type="button">
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
