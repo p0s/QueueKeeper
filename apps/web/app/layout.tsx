@@ -17,8 +17,29 @@ const bodyFont = Manrope({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://queuekeeper.xyz"),
   title: "QueueKeeper — Private Scout-and-Hold Procurement",
-  description: "Privately procure a verified human to scout, hold, or hand off scarce real-world access with proof-backed micropayments."
+  description: "Privately procure a verified human to scout, hold, or hand off scarce real-world access with proof-backed micropayments.",
+  openGraph: {
+    title: "QueueKeeper — Private Scout-and-Hold Procurement",
+    description: "Privately procure a verified human to scout, hold, or hand off scarce real-world access with proof-backed micropayments.",
+    url: "https://queuekeeper.xyz",
+    siteName: "QueueKeeper",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "QueueKeeper cover image"
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "QueueKeeper — Private Scout-and-Hold Procurement",
+    description: "Privately procure a verified human to scout, hold, or hand off scarce real-world access with proof-backed micropayments.",
+    images: ["/twitter-image"]
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

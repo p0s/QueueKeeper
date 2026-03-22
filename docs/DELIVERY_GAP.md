@@ -20,13 +20,13 @@ The repo now ships a more product-like testnet backend loop:
 
 The remaining gaps are now specific and visible:
 
-- the hosted state path is still demo-grade and should be hardened further for multi-instance consistency before final submission
-- ERC-8004 registration is surfaced in the product, but the app is still using simple env-backed identity display rather than a deeper programmable identity workflow
+- the hosted state path is still demo-grade and should be hardened further for multi-instance consistency before a real public rollout
+- ERC-8004 registration is surfaced in the product, but the app still uses simple env-backed identity display rather than a deeper programmable identity workflow
 - `ProofHashRegistry` is deployed but not wired into the active escrow flow
 - live Self verification now has hosted session and callback plumbing, but it still needs a final real-device submission recording pass
 - MetaMask delegation still depends on browser support and user approval for the true active path
 - the Uniswap sidecar now works as a real Sepolia wallet flow, but it still needs a fresh recorded live receipt on the final demo wallet
 - the Base/x402 venue-hint sidecar is live, but it still needs a funded Base Sepolia wallet with a small USDC balance to capture the final paid receipt
-- the submission package still needs final screenshots, cover art, and final hosted-flow verification
+- the submission package still needs final screenshots, final video URL, and final hosted-flow verification against the exact submission recording setup
 
 These are now completion/polish gaps rather than basic “is there a product loop at all?” gaps.

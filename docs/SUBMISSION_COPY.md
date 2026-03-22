@@ -3,8 +3,11 @@
 ## One liner
 QueueKeeper lets a human or agent principal privately procure scarce real-world access one verified micro-step at a time.
 
-## Problem
-Real-world errands like queues are awkward for agents: users want help, but they do not want to reveal exact destinations too early, prepay strangers in full, or trust a generic labor platform to enforce staged commitments fairly.
+## Description
+QueueKeeper lets a human or agent principal privately procure scarce real-world access one verified micro-step at a time. Principals pre-fund a task, reveal the destination only after verified acceptance, and pay only for each proof-backed step instead of trusting a stranger with the whole promise up front.
+
+## Problem Statement
+Existing platforms for hiring humans in the loop still assume one-shot trust: pay a stranger up front, hope the large promise is fulfilled, and rely on post-hoc review or escrow disputes when reality diverges. That model is structurally wrong for scarce-access scouting and short-lived real-world opportunities where demand is uncertain up front, value arrives incrementally, and each small step is cheaply checkable. Buyers need a private way to buy information first and commitment later; runners need early repeated payment; and agents need explicit spend and reveal boundaries. QueueKeeper exists to replace upfront escrow-first trust with bounded-loss, proof-backed micro-steps.
 
 ## Solution
 QueueKeeper combines private planning, bounded spend permissions, verified runner gating, staged task payouts, and proof-linked receipts. Principals keep control, runners get paid as they make verifiable progress, and judges can inspect what happened without exposing raw private details.
@@ -41,6 +44,13 @@ QueueKeeper combines private planning, bounded spend permissions, verified runne
 - Repo: `https://github.com/p0s/QueueKeeper`
 - Demo URL: `https://queuekeeper.xyz`
 - Video URL: fill in after recording
+- Cover image URL: `https://queuekeeper.xyz/opengraph-image`
+
+## Submission-ready files
+- API-shaped payload template: `docs/submission-metadata.template.json`
+- Submission conversation log: `docs/submission-conversation-log.md`
+- Screenshot checklist: `docs/assets/screenshots/README.md`
+- Cover asset: `docs/assets/cover/queuekeeper-cover.svg`
 
 ## Historical onchain example
 - Mock token: `0xEeA30fA689535f7FB45a8A91045E3b1d1c54A3d6`
