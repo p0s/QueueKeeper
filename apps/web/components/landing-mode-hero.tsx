@@ -37,10 +37,6 @@ export function LandingModeHero() {
           Rent-a-human, but no need for escrow, no need to trust, and private - to queue, help, scout and more.
         </p>
 
-        <p className="hero-copy muted hero-inline-copy">
-          Privately procure a verified human to scout, hold, or hand off scarce real-world access.
-        </p>
-
         <div className="mode-toggle" role="tablist" aria-label="Principal mode">
           <button
             aria-selected={!isAgent}
@@ -68,13 +64,13 @@ export function LandingModeHero() {
 
         <div className="cta-row">
           <a className="button" href={isAgent ? "/agent" : "/human"}>
-            {isAgent ? "Use with my agent" : "Rent a human"}
+            {isAgent ? "Use with an agent" : "Rent a human"}
           </a>
         </div>
 
         {isAgent ? (
           <div className="compat-strip">
-            <span className="eyebrow">Use with any agent</span>
+            <span className="eyebrow">Use with any agents like OpenClaw</span>
             <div className="compat-pills">
               <span className="compat-pill">Codex</span>
               <span className="compat-pill">OpenClaw</span>
@@ -84,7 +80,7 @@ export function LandingModeHero() {
               <div className="action-row">
                 <div className="stack-tight">
                   <span className="eyebrow">Hand off to your agent</span>
-                  <strong>Public agent entrypoint</strong>
+                  <strong>curl -s https://queuekeeper.xyz/skill.md</strong>
                 </div>
                 <a className="button secondary" href="/skill.md" rel="noreferrer" target="_blank">Open skill.md</a>
               </div>
