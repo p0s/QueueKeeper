@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AgentIdentityView, BuyerJobFormInput, FundingNormalizationReceiptRequest, PrincipalMode } from "@queuekeeper/shared";
+import type { BuyerJobFormInput, FundingNormalizationReceiptRequest, PrincipalMode } from "@queuekeeper/shared";
 import { createAndPostJob, requestPlannerPreview } from "../lib/agent-client";
-import { getAgentIdentityManifest } from "../lib/agent-manifest";
 import { createLiveJob } from "../lib/chain-client";
 import { resolveAddressOrEns, useEnsIdentity } from "../lib/ens";
 import { setBuyerToken } from "../lib/job-session";
-import { AgentIdentityCard } from "./agent-identity-card";
 import { PrincipalModeTabs } from "./principal-mode-tabs";
 import { UniswapFundingCard } from "./uniswap-funding-card";
 
@@ -23,7 +21,6 @@ type PlannerState = {
 type TaskStudioProps = {
   principalMode: PrincipalMode;
   initialDraft: BuyerJobFormInput;
-  agentIdentity?: AgentIdentityView;
 };
 
 function plannerPathLabel(action?: string) {
@@ -43,8 +40,7 @@ function plannerPathLabel(action?: string) {
 
 export function TaskStudio({
   principalMode,
-  initialDraft,
-  agentIdentity = getAgentIdentityManifest()
+  initialDraft
 }: TaskStudioProps) {
   const router = useRouter();
   const [origin, setOrigin] = useState("https://queuekeeper.xyz");
@@ -340,8 +336,6 @@ export function TaskStudio({
         </section>
 
         <aside className="summary-column">
-          {principalMode === "AGENT" ? <AgentIdentityCard compact identity={agentIdentity} /> : null}
-
           <section className="card rail-card">
             <div className="action-row">
               <div className="stack-tight">
