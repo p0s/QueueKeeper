@@ -17,7 +17,8 @@ synthesis-registration.json
 *.tsbuildinfo
 packages/shared/dist
 
-.secrets
+.secrets/
+submission.local.json
 .queuekeeper-data
 .queuekeeper-object-store
 **/.vercel

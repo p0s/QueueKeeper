@@ -242,3 +242,14 @@ These historical links are useful for judges, but the local MVP does not depend 
 - `docs/DELIVERY_GAP.md`
 - `docs/SUBMISSION_COPY.md`
 - `docs/submission-metadata.template.json`
+
+## Local submission payload
+
+- Private editable source: `.secrets/submission.local.json`
+- Local working copy for API submission: `submission.local.json`
+- Both are gitignored.
+- Safe refresh command:
+
+```bash
+cp .secrets/submission.local.json submission.local.json
+```
