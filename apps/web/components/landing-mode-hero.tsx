@@ -73,11 +73,6 @@ export function LandingModeHero() {
         {isAgent ? (
           <div className="compat-strip">
             <span className="eyebrow">Use with any agents like OpenClaw</span>
-            <div className="compat-pills">
-              <span className="compat-pill">Codex</span>
-              <span className="compat-pill">OpenClaw</span>
-              <span className="compat-pill">Custom agents</span>
-            </div>
             <div className="agent-handoff-card">
               <div className="action-row">
                 <div className="stack-tight">
