@@ -14,13 +14,27 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure"
+    video: "retain-on-failure",
+    launchOptions: {
+      args: [
+        "--disable-crash-reporter",
+        "--disable-crashpad",
+        "--disable-breakpad"
+      ],
+      env: {
+        HOME: "/tmp",
+        TMPDIR: "/tmp",
+        XDG_CONFIG_HOME: "/tmp",
+        XDG_CACHE_HOME: "/tmp"
+      }
+    }
   },
   projects: [
     {
       name: "chromium",
       use: {
-        ...devices["Desktop Chrome"]
+        ...devices["Desktop Chrome"],
+        channel: "chromium"
       }
     }
   ],
