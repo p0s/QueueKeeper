@@ -21,3 +21,7 @@ Notes:
 - Use the current light theme unless you intentionally want a dark-mode screenshot.
 - Capture one screenshot with the Human/Agent selector visible.
 - Capture one screenshot where Uniswap and x402 are visibly present, even if receipts are still pending.
+
+Currently captured in repo:
+
+- `01-landing-human-agent.png`
