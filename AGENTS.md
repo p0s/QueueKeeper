@@ -9,6 +9,8 @@ QueueKeeper is a hackathon repo. Optimize for a crisp working demo, not architec
 - Prefer simple contracts and straightforward app flows over clever abstractions.
 - Use strong typing end to end.
 - Keep secrets, env vars, and private data out of git and logs.
+- Use `SPEC.md` as the current product-alignment document: use it to figure out what to build and stay aligned toward the goal.
+- If the human asks for something significantly different from `SPEC.md`, confirm the new direction first, then update `SPEC.md` after that direction is agreed.
 - If an integration is blocked, replace it with the smallest honest implementation that preserves the demo loop.
 - Do not spend time on generic marketplace features, growth features, or unrelated dashboards.
 

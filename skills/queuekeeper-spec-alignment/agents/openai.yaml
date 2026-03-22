@@ -1,0 +1,4 @@
+interface:
+  display_name: "QueueKeeper Spec Alignment"
+  short_description: "Stay aligned with QueueKeeper spec and repo rules"
+  default_prompt: "Use $queuekeeper-spec-alignment to align work with AGENTS.md, SPEC.md, TASKS.md, and CONVERSATION_LOG.md."
