@@ -245,11 +245,5 @@ These historical links are useful for judges, but the local MVP does not depend 
 
 ## Local submission payload
 
-- Private editable source: `.secrets/submission.local.json`
-- Local working copy for API submission: `submission.local.json`
-- Both are gitignored.
-- Safe refresh command:
-
-```bash
-cp .secrets/submission.local.json submission.local.json
-```
+- Private local submission payload: `.secrets/submission.local.json`
+- Keep submission-only values there; do not create a tracked repo copy.
