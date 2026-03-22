@@ -25,3 +25,4 @@ submission.local.json
 **/.vercel
 playwright-report
 test-results
+tooling.md
