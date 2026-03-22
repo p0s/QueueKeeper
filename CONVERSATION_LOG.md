@@ -62,3 +62,27 @@
 - Agent rewired buyer and runner screens to stored state, added scout proof support, persisted MetaMask delegation results, exported the real escrow ABI, and exposed optional `viem`-based live write paths.
 - Agent validated `pnpm typecheck`, `pnpm lint`, `pnpm build`, `forge test -vv`, and a local smoke flow that created, accepted, proved, and released a full demo job through the built app.
 - Result: the repo now ships a self-contained demo loop by default, with docs updated to call out the remaining mocks and limits honestly.
+
+## 2026-03-21 06:00–08:20 UTC
+- Human pushed the project from MVP toward a more complete product loop with durable state, headless API access, and stronger contract coverage.
+- Agent added the shared `/v1` API surface, repeated heartbeat handling, dispute and timeout paths, and a typed SDK for external-agent use.
+- Agent aligned the escrow contract, ABI exports, and test suite with the staged payout model used by the product.
+- Result: QueueKeeper now presents a coherent buyer, runner, API, and escrow story suitable for a testnet-first submission.
+
+## 2026-03-21 08:20–11:30 UTC
+- Human asked for the product to look less like a technical demo and more like a dispatch-first operations app.
+- Agent redesigned the homepage, buyer dashboard, runner list, and runner detail flow around clearer action states, privacy boundaries, and proof review.
+- Agent also reduced the runner route bundle by lazy-loading the Self QR panel and added better proof media previews.
+- Result: the hosted app now explains the product loop faster and is easier to demo on both desktop and phone-sized screens.
+
+## 2026-03-21 11:30–13:30 UTC
+- Human asked for hosted durability and final deployment readiness work.
+- Agent wired the hosted app to the Vercel deployment path, configured the live environment, and verified the public demo URL, planner path, and core product routes.
+- Agent also aligned docs and deployment notes with the actual hosted product behavior.
+- Result: QueueKeeper has a current live deployment and a consistent hosted demo path.
+
+## 2026-03-21 15:00–16:00 UTC
+- Human requested a tighter privacy and security pass before submission preparation.
+- Agent removed legacy compatibility routes that bypassed the `/v1` auth model, hid reveal tokens from URLs, added auth to Self session reads, and reduced public exposure of runner assignment data.
+- Agent backed those changes with fresh validation across typecheck, lint, core tests, contract tests, and a new production deploy.
+- Result: the public app now better matches the stated privacy model and has a cleaner submission posture.

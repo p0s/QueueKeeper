@@ -3,25 +3,24 @@
 The repo now ships a more product-like testnet backend loop:
 
 - durable `packages/core` state with SQLite + encrypted object storage
+- hosted Next.js app with built-in `/api/v1` product API
 - typed `packages/sdk`
 - shared `/v1` API in both `apps/agent` and `apps/web`
 - encrypted proof-bundle upload and buyer-side proof review
 - repeated heartbeat stages
 - timeout auto-release and dispute settlement in backend state
 - direct-dispatch and verified-pool modes at the schema/API layer
-- live Venice planner path verified locally
+- live Venice planner path verified on the hosted app
 - contracts compile and current Foundry suites pass
 - backend lifecycle tests pass in `packages/core`
+- legacy compatibility routes that bypassed the `/v1` auth model have been removed
 
 The remaining gaps are now specific and visible:
 
-- Supabase/Postgres + private object storage adapter for the hosted production path is still not implemented
+- the hosted state path is still demo-grade and should be hardened further for multi-instance consistency before final submission
 - `ProofHashRegistry` is deployed but not wired into the active escrow flow
-- contract parity for repeated heartbeats, dispute freeze, and timeout auto-release is still incomplete
-- live Self frontend verification now has session plumbing, but it still needs a full real-device verification pass on the current hosted deployment
-- Vercel still needs the full server-side env set for encryption, Venice, Self, and internal reconcile auth
+- live Self verification now has hosted session and callback plumbing, but it still needs a final real-device submission recording pass
 - MetaMask delegation still depends on browser support and user approval for the true active path
-- `queuekeeper.xyz` must be redeployed from the latest `main` before final judging if it is behind
 - the submission package still needs final screenshots, cover art, and final hosted-flow verification
 
 These are now completion/polish gaps rather than basic “is there a product loop at all?” gaps.

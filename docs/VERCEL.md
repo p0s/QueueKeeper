@@ -36,14 +36,18 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `NEXT_PUBLIC_SELF_ENDPOINT_TYPE=staging_https`
 
 ## Demo note
-If `NEXT_PUBLIC_AGENT_BASE_URL` is blank, the hosted app uses the built-in Next.js `/api/v1` product API plus compatibility routes.
+If `NEXT_PUBLIC_AGENT_BASE_URL` is blank, the hosted app uses the built-in Next.js `/api/v1` product API.
 
-If `SELF_MODE=live`, the runner accept path now uses a hosted Self verification session and callback endpoint under `/api/v1/self/sessions/...`.
+If `SELF_MODE=live`, the runner accept path uses a hosted Self verification session and callback endpoint under `/api/v1/self/sessions/...`.
 
 If `VENICE_API_KEY` is present but the Venice account has no available balance, QueueKeeper now falls back transparently and exposes the `venice-fallback` reason in the planner preview instead of silently claiming live planner success.
 
 ## Live integration status
 
 - Venice: live-capable planner boundary added; activates when `VENICE_API_KEY` is set.
-- Self: live-capable backend/session path added; final hosted verification still needs a full real-device pass.
+- Self: live-capable session and callback path added; final hosted verification still needs a full real-device pass.
 - MetaMask: live wallet/detection surface and delegation hook points remain in the buyer flow; bounded fallback is still explicit.
+
+## Current live URL
+
+- `https://queuekeeper.xyz`

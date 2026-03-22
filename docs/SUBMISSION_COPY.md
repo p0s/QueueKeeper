@@ -10,20 +10,20 @@ Real-world errands like queues are awkward for agents: users want help, but they
 QueueKeeper combines private planning, bounded spend permissions, verified runner gating, staged escrow, and proof-hash receipts. Buyers keep control, runners get paid as they make verifiable progress, and judges can inspect what happened without exposing raw private details.
 
 ## What is live in the MVP
-- self-contained web demo backend with no external DB
-- buyer job creation and funding flow backed by real stored state
-- mobile-friendly runner list and detail flow backed by real stored state
-- verified acceptance gate that hides exact location until accept succeeds
-- scout / arrival / heartbeat / completion proof submission and buyer releases
-- staged escrow contract + passing Foundry tests
+- hosted Next.js app with built-in `/api/v1` product API
+- buyer create, post, review, approve, and dispute flow backed by stored state
+- mobile-first runner flow with verification, acceptance, reveal gating, and proof upload
+- exact location stays hidden from public job views until verified acceptance succeeds
+- scout / arrival / repeated heartbeat / completion proof submission and buyer-side payout controls
+- staged escrow contract with repeated heartbeat, timeout, dispute, and refund coverage in the contract test suite
+- live Venice planner path on the hosted app, with explicit fallback behavior if the provider is unavailable
 - optional wallet-backed live escrow writes through `viem`
 - bounded permission policy UI with persisted MetaMask permission results
 
 ## What is still a fallback or mock
-- Venice planning is mocked unless `VENICE_API_KEY` is set
-- Self verification is mocked unless `SELF_MODE=live` and `SELF_API_URL` are set
 - MetaMask delegation falls back to a bounded policy record when the permission request fails or is unavailable
-- the current MVP supports one heartbeat stage, not repeated heartbeat payouts
+- the hosted product is still demo-grade rather than a production multi-tenant service
+- Self live verification still needs a final recorded real-device pass for submission
 - `ProofHashRegistry` is deployed but not in the active flow yet
 
 ## Deployed contracts
@@ -33,7 +33,7 @@ QueueKeeper combines private planning, bounded spend permissions, verified runne
 
 ## Submission links
 - Repo: `https://github.com/p0s/QueueKeeper`
-- Demo URL: fill in the final deployed URL before submission
+- Demo URL: `https://queuekeeper.xyz`
 - Video URL: fill in after recording
 
 ## Historical onchain example

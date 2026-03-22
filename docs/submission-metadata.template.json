@@ -2,7 +2,7 @@
   "projectName": "QueueKeeper",
   "tagline": "Private, delegated, staged queue procurement",
   "repoUrl": "https://github.com/p0s/QueueKeeper",
-  "demoUrl": "",
+  "demoUrl": "https://queuekeeper.xyz",
   "videoUrl": "",
   "coverImagePath": "docs/assets/cover/README.md",
   "screenshots": [
@@ -17,19 +17,17 @@
     "Celo"
   ],
   "whatIsReal": [
-    "Self-contained web demo backend",
-    "Buyer and runner flows backed by stored state",
+    "Hosted Next.js app with built-in /api/v1 product API",
+    "Buyer and runner flows backed by stored job state",
     "Verified acceptance gate for exact location reveal",
-    "Stage proof timeline and buyer release controls",
-    "Passing Foundry tests",
-    "Optional live escrow writes via viem and MetaMask"
+    "Repeated heartbeat stages with proof timeline and buyer release controls",
+    "Passing Foundry suites for escrow and delegation policy contracts",
+    "Optional wallet-backed live escrow writes via viem"
   ],
   "whatIsMocked": [
-    "Venice unless API credentials are provided",
-    "Self unless live verifier env vars are provided",
     "MetaMask delegation when wallet permissions are unavailable",
-    "Repeated heartbeat releases",
-    "ProofHashRegistry integration into the active flow"
+    "ProofHashRegistry integration into the active flow",
+    "Final recorded real-device Self verification pass"
   ],
   "status": "draft"
 }
