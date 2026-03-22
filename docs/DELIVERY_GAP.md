@@ -21,7 +21,7 @@ The repo now ships a more product-like testnet backend loop:
 The remaining gaps are now specific and visible:
 
 - the hosted state path is still demo-grade and should be hardened further for multi-instance consistency before final submission
-- Synthesis/ERC-8004 registration details still need to be wired into the public agent identity surface
+- ERC-8004 registration is surfaced in the product, but the app is still using simple env-backed identity display rather than a deeper programmable identity workflow
 - `ProofHashRegistry` is deployed but not wired into the active escrow flow
 - live Self verification now has hosted session and callback plumbing, but it still needs a final real-device submission recording pass
 - MetaMask delegation still depends on browser support and user approval for the true active path

@@ -21,6 +21,7 @@ QueueKeeper combines private planning, bounded spend permissions, verified runne
 - optional wallet-backed live escrow writes through `viem`
 - bounded permission policy UI with persisted MetaMask permission results
 - root `agent.json` and `agent_log.json` artifacts plus an in-product sponsor evidence page
+- env-backed ERC-8004 registration and agent wallet surface in the live app
 
 ## What is still a fallback or mock
 - MetaMask delegation falls back to a bounded policy record when the permission request fails or is unavailable
