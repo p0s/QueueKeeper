@@ -9,22 +9,27 @@ export function PublicTaskFeed({ initialTasks }: { initialTasks: QueueJobView[] 
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/v1/tasks?viewer=public", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return await response.json() as { tasks?: QueueJobView[] };
-      })
-      .then((json) => {
-        if (active && json?.tasks) {
+    async function refreshTasks() {
+      try {
+        const response = await fetch("/api/v1/tasks?viewer=public", { cache: "no-store" });
+        if (!response.ok) return;
+        const json = await response.json() as { tasks?: QueueJobView[] };
+        if (active && json.tasks) {
           setTasks(json.tasks);
         }
-      })
-      .catch(() => {
-        // Keep the server-rendered snapshot if the refresh fails.
-      });
+      } catch {
+        // Keep the current snapshot if refresh fails.
+      }
+    }
+
+    void refreshTasks();
+    const interval = window.setInterval(() => {
+      void refreshTasks();
+    }, 4000);
 
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 
