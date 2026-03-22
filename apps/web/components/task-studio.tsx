@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AgentIdentityView, BuyerJobFormInput, PrincipalMode } from "@queuekeeper/shared";
+import type { AgentIdentityView, BuyerJobFormInput, FundingNormalizationReceiptRequest, PrincipalMode } from "@queuekeeper/shared";
 import { createAndPostJob, requestPlannerPreview } from "../lib/agent-client";
 import { getAgentIdentityManifest, procurementThesis } from "../lib/agent-manifest";
 import { createLiveJob } from "../lib/chain-client";
 import { resolveAddressOrEns, useEnsIdentity } from "../lib/ens";
 import { setBuyerToken } from "../lib/job-session";
 import { AgentIdentityCard } from "./agent-identity-card";
+import { UniswapFundingCard } from "./uniswap-funding-card";
 
 type PlannerState = {
   loading: boolean;
@@ -36,6 +37,7 @@ export function TaskStudio({
   const [plannerState, setPlannerState] = useState<PlannerState>({ loading: false });
   const [statusMessage, setStatusMessage] = useState("No task posted yet.");
   const [sendLiveTx, setSendLiveTx] = useState(false);
+  const [fundingReceipt, setFundingReceipt] = useState<Omit<FundingNormalizationReceiptRequest, "buyerToken"> | null>(null);
   const runnerIdentity = useEnsIdentity(form.selectedRunnerAddress ?? null);
 
   function update<K extends keyof BuyerJobFormInput>(key: K, value: BuyerJobFormInput[K]) {
@@ -85,7 +87,7 @@ export function TaskStudio({
         principalMode,
         selectedRunnerAddress: resolvedRunner.address ?? form.selectedRunnerAddress
       };
-      const created = await createAndPostJob(nextForm);
+      const created = await createAndPostJob(nextForm, undefined, fundingReceipt ?? undefined);
       setBuyerToken(created.job.id, created.buyerToken);
       let nextMessage = `Task ${created.job.id} posted with bounded spend.`;
 
@@ -201,6 +203,8 @@ export function TaskStudio({
               </div>
             </div>
 
+            <UniswapFundingCard onReceiptReady={setFundingReceipt} />
+
             <div className="card alt section-card">
               <strong>Posting controls</strong>
               <label className="checkbox-row">
@@ -213,6 +217,11 @@ export function TaskStudio({
                 </button>
                 <button className="button" onClick={handlePost} type="button">Fund and post task</button>
               </div>
+              {fundingReceipt ? (
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Latest treasury normalization receipt: {fundingReceipt.network} · {fundingReceipt.txHash}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

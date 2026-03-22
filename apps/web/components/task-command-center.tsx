@@ -9,6 +9,7 @@ import {
   fetchDemoJob,
   fetchEvidence,
   fetchProofBundle,
+  recordFundingNormalization,
   requestAgentDecision,
   stopTask
 } from "../lib/agent-client";
@@ -20,6 +21,8 @@ import { ExplorerPanel } from "./explorer-panel";
 import { JobTimeline } from "./job-timeline";
 import { PolicyCard } from "./policy-card";
 import { ProofMediaGallery } from "./proof-media-gallery";
+import { UniswapFundingCard } from "./uniswap-funding-card";
+import { X402HintCard } from "./x402-hint-card";
 
 export function TaskCommandCenter({
   initialTask,
@@ -186,6 +189,28 @@ export function TaskCommandCenter({
               <a className="button secondary" href={`/runner/${task.id}`}>Open runner flow</a>
             </div>
           </section>
+          {task.principalMode === "AGENT" && buyerToken ? (
+            <X402HintCard
+              buyerToken={buyerToken}
+              onTaskUpdated={async (nextTask) => {
+                setTask(nextTask);
+                setStatusMessage("Paid venue hint added. The next planner decision now sees the private hint.");
+                const response = await fetchAgentLog(taskId, buyerToken);
+                setAgentIdentity(response.identity);
+                setAgentLog(response.log);
+              }}
+              taskId={taskId}
+            />
+          ) : null}
+          {buyerToken ? (
+            <UniswapFundingCard
+              onReceiptReady={async (receipt) => {
+                const response = await recordFundingNormalization(taskId, buyerToken, receipt);
+                setTask(response.job);
+                setStatusMessage("Funding normalization receipt recorded against this task.");
+              }}
+            />
+          ) : null}
           {agentLog.length > 0 ? <AgentLogPanel log={agentLog} /> : null}
           <PolicyCard policy={task.policy} />
           <ExplorerPanel links={task.explorerLinks} />

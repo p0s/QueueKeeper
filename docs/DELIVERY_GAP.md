@@ -25,7 +25,8 @@ The remaining gaps are now specific and visible:
 - `ProofHashRegistry` is deployed but not wired into the active escrow flow
 - live Self verification now has hosted session and callback plumbing, but it still needs a final real-device submission recording pass
 - MetaMask delegation still depends on browser support and user approval for the true active path
-- Uniswap and Base/x402 sidecars are still not integrated into the live happy path
+- the Uniswap sidecar now works as a real Sepolia wallet flow, but it still needs a fresh recorded live receipt on the final demo wallet
+- the Base/x402 venue-hint sidecar is live, but it still needs a funded Base Sepolia wallet with a small USDC balance to capture the final paid receipt
 - the submission package still needs final screenshots, cover art, and final hosted-flow verification
 
 These are now completion/polish gaps rather than basic “is there a product loop at all?” gaps.

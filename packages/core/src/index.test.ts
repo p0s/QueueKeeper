@@ -265,3 +265,60 @@ test("stopTask closes unreleased increments", () => {
   assert.equal(stopped.job.status, "cancelled");
   assert.ok(stopped.job.stages.every((stage) => ["refunded", "pending-proof"].includes(stage.status)));
 });
+
+test("funding normalization receipt upgrades Uniswap evidence to live", () => {
+  const core = createTestCore("funding");
+  const draft = createDraft(core, { principalMode: "AGENT" });
+  core.postTask({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  core.recordFundingNormalization(draft.job.id, {
+    buyerToken: draft.buyerToken,
+    provider: "uniswap",
+    network: "ethereum-sepolia",
+    txHash: "0xabc123",
+    chainId: 11155111,
+    inputToken: "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    outputToken: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    inputAmount: "10000000000000000",
+    outputAmount: "55000000",
+    quoteId: "quote-1",
+    route: "CLASSIC"
+  });
+
+  const uniswap = core.getEvidence().evidence.find((item) => item.id === "uniswap");
+  assert.equal(uniswap?.status, "live");
+  assert.match(uniswap?.href ?? "", /sepolia\.etherscan\.io/);
+});
+
+test("paid venue hint lands in agent log as discover-phase work", () => {
+  const core = createTestCore("tool");
+  const draft = createDraft(core, { principalMode: "AGENT" });
+  core.postTask({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  core.recordAgentToolPurchase(draft.job.id, {
+    buyerToken: draft.buyerToken,
+    provider: "x402",
+    network: "eip155:84532",
+    txHash: "0xdef456",
+    payer: "0xc5CfE770F01A308DF5D840d0Eb15f0b4cF264C81",
+    signal: {
+      provider: "queuekeeper-x402",
+      taskId: draft.job.id,
+      signalId: "signal-1",
+      coarseArea: "Valencia",
+      timingWindow: "This afternoon",
+      recommendation: "scout",
+      confidence: "scout",
+      summary: "Paid venue hint says scout first before escalating.",
+      purchasedAt: new Date().toISOString()
+    }
+  });
+
+  const log = core.getAgentLog(draft.job.id, draft.buyerToken).log;
+  assert.equal(log.at(-1)?.phase, "discover");
+  assert.match(log.at(-1)?.summary ?? "", /paid venue hint/i);
+
+  const x402 = core.getEvidence().evidence.find((item) => item.id === "x402");
+  assert.equal(x402?.status, "live");
+  assert.match(x402?.href ?? "", /sepolia\.basescan\.org/);
+});

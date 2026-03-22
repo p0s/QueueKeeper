@@ -27,6 +27,8 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `NEXT_PUBLIC_QUEUEKEEPER_AGENT_ENS` *(optional; the UI can also reverse-resolve ENS from any configured EVM address)*
 - `NEXT_PUBLIC_SYNTHESIS_AGENT_REGISTRATION_URL`
 - `NEXT_PUBLIC_ENS_RPC_URL` *(optional; defaults to a public Ethereum mainnet RPC for ENS lookups)*
+- `NEXT_PUBLIC_ETHEREUM_SEPOLIA_RPC_URL` *(optional; defaults to a public Sepolia RPC for the Uniswap sidecar)*
+- `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` *(optional; defaults to `https://sepolia.base.org` for the x402 sidecar)*
 - `NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://celo-sepolia.blockscout.com`
 - `QUEUEKEEPER_ENCRYPTION_KEY`
 - `QUEUEKEEPER_INTERNAL_API_TOKEN`
@@ -39,6 +41,7 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `SELF_API_URL`
 - `SELF_API_KEY` *(if required by your Self backend)*
 - `UNISWAP_API_KEY` *(if you wire the Uniswap sidecar)*
+- `X402_FACILITATOR_URL` *(optional; defaults to `https://x402.org/facilitator` for Base Sepolia test payments)*
 - `NEXT_PUBLIC_SELF_APP_NAME`
 - `NEXT_PUBLIC_SELF_SCOPE`
 - `NEXT_PUBLIC_SELF_ENDPOINT_TYPE=staging_https`
@@ -55,6 +58,8 @@ If `VENICE_API_KEY` is present but the Venice account has no available balance, 
 - Venice: live-capable planner boundary added; activates when `VENICE_API_KEY` is set.
 - Self: live-capable session and callback path added; final hosted verification still needs a full real-device pass.
 - MetaMask: live wallet/detection surface and delegation hook points remain in the buyer flow; bounded fallback is still explicit.
+- Uniswap: task creation and the command center now expose a live Sepolia WETH -> USDC normalization rail when `UNISWAP_API_KEY` is present.
+- x402: the command center can buy one paid Base Sepolia venue hint and write the receipt back into the task log; the connected wallet needs Base Sepolia gas and a small USDC balance.
 
 ## Current live URL
 

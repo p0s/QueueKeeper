@@ -1,10 +1,12 @@
 import type {
   AcceptJobVerificationPayload,
   AgentDecision,
+  AgentToolPurchaseRequest,
   ApproveStageRequest,
   BuyerJobFormInput,
   DisputeStageRequest,
   DispatchJobRequest,
+  FundingNormalizationReceiptRequest,
   PlannerInput,
   SelfVerificationResult
 } from "@queuekeeper/shared";
@@ -293,6 +295,16 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         return json(200, response);
       }
 
+      if (request.method === "POST" && segments[3] === "funding" && segments[4] === "normalized") {
+        const payload = (await request.json()) as FundingNormalizationReceiptRequest;
+        const response = core.recordFundingNormalization(jobId, {
+          ...payload,
+          buyerToken: bearer ?? ""
+        });
+        await persistQueueKeeperCore(core);
+        return json(200, response);
+      }
+
       if (request.method === "POST" && segments[3] === "agent" && segments[4] === "decide") {
         const context = core.getAgentDecisionContext(jobId, bearer ?? "");
         const planner = await deps.plan(context);
@@ -309,6 +321,16 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "GET" && segments[3] === "agent" && segments[4] === "log") {
         return json(200, core.getAgentLog(jobId, bearer ?? ""));
+      }
+
+      if (request.method === "POST" && segments[3] === "agent" && segments[4] === "tool-purchase") {
+        const payload = (await request.json()) as AgentToolPurchaseRequest;
+        const response = core.recordAgentToolPurchase(jobId, {
+          ...payload,
+          buyerToken: bearer ?? ""
+        });
+        await persistQueueKeeperCore(core);
+        return json(200, response);
       }
 
       if (request.method === "POST" && segments[3] === "dispute" && segments[4] === "settle") {

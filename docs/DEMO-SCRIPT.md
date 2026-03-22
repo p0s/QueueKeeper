@@ -14,8 +14,9 @@ Show the full trust loop in under 4 minutes.
 8. Accept only after verification succeeds and show reveal data.
 9. Submit a scout proof with an encrypted image bundle.
 10. Return to the command center, review the proof, and release the scout increment.
-11. Trigger an agent decision and explain why it continues or stops.
-12. End on `/evidence`, explorer links, and the downloadable `agent.json` / `agent_log.json` artifacts.
+11. Buy one paid x402 venue hint and show that it lands in the private planner context and the agent log.
+12. Trigger an agent decision and explain why it continues or stops.
+13. End on `/evidence`, explorer links, the Uniswap/x402 receipts, and the downloadable `agent.json` / `agent_log.json` artifacts.
 
 ## If asked about live chain state
 - show Foundry tests

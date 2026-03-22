@@ -3,14 +3,23 @@ import type {
   AcceptJobResponse,
   AgentDecisionResponse,
   AgentLogResponse,
+  AgentToolPurchaseRequest,
   ApproveStageRequest,
   BuyerJobFormInput,
   DelegationUpdateRequest,
   EvidenceResponse,
+  FundingNormalizationReceiptRequest,
+  PaidVenueHintResponse,
   PlannerAction,
   QueueJobView,
   QueueStageKey,
-  SubmitProofRequest
+  SubmitProofRequest,
+  UniswapCheckApprovalRequest,
+  UniswapCheckApprovalResponse,
+  UniswapQuoteRequest,
+  UniswapQuoteResponse,
+  UniswapSwapRequest,
+  UniswapSwapResponse
 } from "@queuekeeper/shared";
 import { QueueKeeperClient } from "@queuekeeper/sdk";
 import { buildPlannerInputFromBuyerForm } from "./demo-data";
@@ -69,10 +78,20 @@ export async function requestPlannerPreview(form: BuyerJobFormInput): Promise<Pl
   };
 }
 
-export async function createAndPostJob(form: BuyerJobFormInput, idempotencyKey?: string): Promise<{ job: QueueJobView; buyerToken: string }> {
+export async function createAndPostJob(
+  form: BuyerJobFormInput,
+  idempotencyKey?: string,
+  fundingReceipt?: Omit<FundingNormalizationReceiptRequest, "buyerToken">
+): Promise<{ job: QueueJobView; buyerToken: string }> {
   const client = getClient();
   const draft = await client.createTaskDraft(form, idempotencyKey);
   const posted = await client.postTask(draft.job.id, draft.buyerToken, {});
+  if (fundingReceipt) {
+    await client.recordTaskFundingNormalization(draft.job.id, {
+      ...fundingReceipt,
+      buyerToken: draft.buyerToken
+    });
+  }
   return {
     job: posted.job,
     buyerToken: draft.buyerToken
@@ -160,6 +179,36 @@ export async function fetchAgentLog(jobId: string, buyerToken: string): Promise<
 
 export async function fetchEvidence(): Promise<EvidenceResponse> {
   return getClient().getEvidence();
+}
+
+export async function recordFundingNormalization(taskId: string, buyerToken: string, receipt: Omit<FundingNormalizationReceiptRequest, "buyerToken">) {
+  return getClient().recordTaskFundingNormalization(taskId, {
+    ...receipt,
+    buyerToken
+  });
+}
+
+export async function recordAgentToolPurchase(taskId: string, buyerToken: string, purchase: Omit<AgentToolPurchaseRequest, "buyerToken">) {
+  return getClient().recordTaskAgentToolPurchase(taskId, {
+    ...purchase,
+    buyerToken
+  });
+}
+
+export async function checkUniswapApproval(request: UniswapCheckApprovalRequest): Promise<UniswapCheckApprovalResponse> {
+  return getClient().checkUniswapApproval(request);
+}
+
+export async function getUniswapQuote(request: UniswapQuoteRequest): Promise<UniswapQuoteResponse> {
+  return getClient().getUniswapQuote(request);
+}
+
+export async function buildUniswapSwap(request: UniswapSwapRequest): Promise<UniswapSwapResponse> {
+  return getClient().buildUniswapSwap(request);
+}
+
+export async function getPaidVenueHint(taskId?: string): Promise<PaidVenueHintResponse> {
+  return getClient().getPaidVenueHint(taskId);
 }
 
 export function makeDefaultProofHash(stageKey: QueueStageKey, jobId: string) {

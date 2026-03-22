@@ -7,6 +7,7 @@ import {
   type AgentDecisionLogView,
   type AgentDecisionResponse,
   type AgentIdentityView,
+  type AgentToolPurchaseRequest,
   queueStageLabels,
   type AcceptJobResponse,
   type ApiError,
@@ -18,6 +19,7 @@ import {
   type DisputeStageRequest,
   type EvidenceItemView,
   type EvidenceResponse,
+  type FundingNormalizationReceiptRequest,
   type PlannerAction,
   type PlannerInput,
   type PrincipalMode,
@@ -967,6 +969,68 @@ export class QueueKeeperCore {
     return this.getTimeline(jobId, "buyer", { buyerToken });
   }
 
+  recordFundingNormalization(taskId: string, request: FundingNormalizationReceiptRequest) {
+    const job = this.requireBuyerJob(taskId, request.buyerToken);
+    this.db.prepare("UPDATE jobs SET updated_at = ?2 WHERE id = ?1").run(taskId, nowIso());
+    this.recordEvent(
+      taskId,
+      "funding.normalized",
+      "buyer",
+      job.buyerAddress,
+      `Budget normalized via ${request.provider} on ${request.network}.`,
+      {
+        provider: request.provider,
+        network: request.network,
+        chainId: request.chainId,
+        txHash: request.txHash,
+        inputToken: request.inputToken,
+        outputToken: request.outputToken,
+        inputAmount: request.inputAmount,
+        outputAmount: request.outputAmount,
+        quoteId: request.quoteId ?? null,
+        route: request.route ?? null
+      }
+    );
+    return this.getTimeline(taskId, "buyer", { buyerToken: request.buyerToken });
+  }
+
+  recordAgentToolPurchase(taskId: string, request: AgentToolPurchaseRequest) {
+    const job = this.requireBuyerJob(taskId, request.buyerToken);
+    const secret = this.objectStore.readJson<QueueSecretPayload>(job.secretObjectKey);
+    const nextSecret: QueueSecretPayload = {
+      ...secret,
+      hiddenNotes: [
+        secret.hiddenNotes,
+        `Paid venue hint (${request.signal.purchasedAt}): ${request.signal.summary}`,
+        `Recommended action: ${request.signal.recommendation}`
+      ].filter(Boolean).join("\n")
+    };
+    const secretObjectKey = this.objectStore.writeJson(`jobs/${taskId}/secrets`, nextSecret);
+
+    this.db.prepare(`
+      UPDATE jobs
+      SET secret_object_key = ?2, secret_digest = ?3, updated_at = ?4
+      WHERE id = ?1
+    `).run(taskId, secretObjectKey, sha256Hex(JSON.stringify(nextSecret)), nowIso());
+
+    this.recordEvent(
+      taskId,
+      "agent.tool-purchased",
+      "planner",
+      request.payer,
+      `Agent purchased a paid venue hint and added it to the private planner context.`,
+      {
+        provider: request.provider,
+        network: request.network,
+        txHash: request.txHash,
+        payer: request.payer,
+        signal: request.signal
+      }
+    );
+
+    return this.getTimeline(taskId, "buyer", { buyerToken: request.buyerToken });
+  }
+
   getTimeline(jobId: string, viewer: QueueViewerRole, auth: AuthContext = {}): QueueJobTimelineResponse {
     const job = this.getJob(jobId, viewer, auth);
     const events = this.db.prepare("SELECT * FROM events WHERE job_id = ?1 ORDER BY created_at ASC").all(jobId) as Array<{
@@ -1084,6 +1148,8 @@ export class QueueKeeperCore {
         ? "verify"
         : event.type.startsWith("proof.")
           ? "submit"
+          : event.type === "agent.tool-purchased"
+            ? "discover"
           : event.type.startsWith("agent.")
             ? "decide"
             : event.type.startsWith("job.") || event.type.startsWith("task.")
@@ -1106,6 +1172,12 @@ export class QueueKeeperCore {
   getEvidence(): EvidenceResponse {
     const contracts = this.buildExplorerLinks({ txHashes: {} });
     const identity = this.getAgentIdentity();
+    const latestFundingReceipt = this.getLatestEventByType("funding.normalized");
+    const latestToolReceipt = this.getLatestEventByType("agent.tool-purchased");
+    const fundingTxHash = typeof latestFundingReceipt?.payload?.txHash === "string" ? latestFundingReceipt.payload.txHash : null;
+    const fundingNetwork = typeof latestFundingReceipt?.payload?.network === "string" ? latestFundingReceipt.payload.network : null;
+    const toolTxHash = typeof latestToolReceipt?.payload?.txHash === "string" ? latestToolReceipt.payload.txHash : null;
+    const toolNetwork = typeof latestToolReceipt?.payload?.network === "string" ? latestToolReceipt.payload.network : null;
     const evidence: EvidenceItemView[] = [
       {
         id: "erc8004",
@@ -1162,17 +1234,23 @@ export class QueueKeeperCore {
         id: "uniswap",
         label: "Budget normalization swap path",
         sponsor: "Uniswap",
-        status: process.env.UNISWAP_API_KEY ? "partial" : "planned",
-        summary: process.env.UNISWAP_API_KEY
-          ? "Uniswap API credentials are configured; live swap execution is the remaining step."
-          : "Stablecoin budget normalization is reserved for the next sponsor pass."
+        status: fundingTxHash ? "live" : process.env.UNISWAP_API_KEY ? "partial" : "planned",
+        summary: fundingTxHash
+          ? latestFundingReceipt?.summary ?? "A live Uniswap normalization swap receipt is recorded."
+          : process.env.UNISWAP_API_KEY
+            ? "Uniswap API credentials are configured; live swap execution is the remaining step."
+            : "Stablecoin budget normalization is reserved for the next sponsor pass.",
+        href: fundingTxHash && fundingNetwork ? this.buildExternalTxUrl(fundingNetwork, fundingTxHash) ?? undefined : undefined
       },
       {
         id: "x402",
         label: "Paid external data sidecar",
         sponsor: "Base / x402",
-        status: "planned",
-        summary: "The planner-side paid data path is reserved for the next sponsor pass."
+        status: toolTxHash ? "live" : "partial",
+        summary: toolTxHash
+          ? latestToolReceipt?.summary ?? "A live x402 paid venue hint receipt is recorded."
+          : "The paid venue-hint sidecar is live; recording a paid receipt is the remaining demo step.",
+        href: toolTxHash && toolNetwork ? this.buildExternalTxUrl(toolNetwork, toolTxHash) ?? undefined : undefined
       }
     ];
 
@@ -1208,8 +1286,14 @@ export class QueueKeeperCore {
         "/v1/tasks/{taskId}/stop": { post: { summary: "Stop the task after the current verified increment" } },
         "/v1/tasks/{taskId}/agent/decide": { post: { summary: "Compute and log the next agent decision" } },
         "/v1/tasks/{taskId}/agent/log": { get: { summary: "Fetch structured agent execution log" } },
+        "/v1/tasks/{taskId}/agent/tool-purchase": { post: { summary: "Record a paid agent tool purchase and add it to the private planner context" } },
+        "/v1/tasks/{taskId}/funding/normalized": { post: { summary: "Record a treasury normalization receipt for the task" } },
         "/v1/tasks/{taskId}/timeline": { get: { summary: "Fetch receipts timeline" } },
-        "/v1/evidence": { get: { summary: "Fetch sponsor evidence and contract receipts" } }
+        "/v1/evidence": { get: { summary: "Fetch sponsor evidence and contract receipts" } },
+        "/v1/uniswap/check-approval": { post: { summary: "Prepare the Permit2 approval transaction for a live Uniswap Sepolia swap" } },
+        "/v1/uniswap/quote": { post: { summary: "Fetch a live Uniswap Sepolia budget-normalization quote" } },
+        "/v1/uniswap/swap": { post: { summary: "Build the signed Uniswap swap transaction payload" } },
+        "/v1/x402/venue-hint": { get: { summary: "Buy a paid Base Sepolia venue hint over x402" } }
       }
     };
   }
@@ -1552,6 +1636,23 @@ export class QueueKeeperCore {
     return links.filter((entry) => !entry.href.endsWith("/"));
   }
 
+  private buildExternalTxUrl(network: string, txHash: string) {
+    const normalized = network.toLowerCase();
+    if (normalized === "eip155:11155111" || normalized === "ethereum-sepolia") {
+      return `https://sepolia.etherscan.io/tx/${txHash}`;
+    }
+    if (normalized === "eip155:84532" || normalized === "base-sepolia") {
+      return `https://sepolia.basescan.org/tx/${txHash}`;
+    }
+    if (normalized === "eip155:42220" || normalized === "celo") {
+      return `https://celoscan.io/tx/${txHash}`;
+    }
+    if (normalized === "eip155:11142220" || normalized === "celo-sepolia") {
+      return `https://celo-sepolia.blockscout.com/tx/${txHash}`;
+    }
+    return null;
+  }
+
   private describeCurrentStage(job: CoreJobRecord, stages: CoreStageRecord[]) {
     const disputed = stages.find((stage) => stage.status === "disputed");
     if (disputed) return `${disputed.label} is disputed and unreleased funds are frozen.`;
@@ -1735,6 +1836,27 @@ export class QueueKeeperCore {
     const payload = parseJson<Record<string, unknown>>(row.payload_json);
     const action = typeof payload.action === "string" ? payload.action : null;
     return action ? `${action} · ${row.summary}` : row.summary;
+  }
+
+  private getLatestEventByType(eventType: string) {
+    const row = this.db.prepare(`
+      SELECT job_id, summary, payload_json, created_at
+      FROM events
+      WHERE event_type = ?1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(eventType) as { job_id: string; summary: string; payload_json: string; created_at: string } | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      jobId: String(row.job_id),
+      summary: String(row.summary),
+      createdAt: String(row.created_at),
+      payload: parseJson<Record<string, unknown>>(row.payload_json)
+    };
   }
 
   private defaultReviewWindowSeconds(stageKey: QueueStageKey) {

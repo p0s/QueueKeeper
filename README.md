@@ -32,6 +32,9 @@ QueueKeeper is a testnet-first private scout-and-hold procurement product: a hum
 - The product supports both `DIRECT_DISPATCH` and `VERIFIED_POOL` modes at the schema/API layer.
 - Root agent artifacts are available at `/agent.json` and `/agent_log.json`.
 - A typed OpenAPI-style surface is exposed from the headless API at `/v1/openapi.json`.
+- The sponsor sidecars are now productized instead of mocked:
+  - Uniswap Sepolia budget normalization can wrap ETH, quote WETH -> USDC, and submit a real swap
+  - Base Sepolia x402 can sell one paid venue-hint lookup and write the receipt back into the task log
 - Foundry tests pass for the current escrow/policy contracts, and the new durable backend lifecycle tests pass in `packages/core`.
 
 ## Architecture
@@ -91,6 +94,10 @@ The durable API surface is available in the agent app and mirrored locally in th
 - `GET /v1/tasks/:taskId/agent/log`
 - `GET /v1/tasks/:taskId/timeline`
 - `GET /v1/evidence`
+- `POST /v1/uniswap/check-approval`
+- `POST /v1/uniswap/quote`
+- `POST /v1/uniswap/swap`
+- `GET /v1/x402/venue-hint`
 
 ## Delegation model
 
@@ -178,6 +185,10 @@ Important defaults:
 - Set `NEXT_PUBLIC_CELO_RPC_URL` if you want live `viem` reads/writes to use a non-default RPC.
 - Set `QUEUEKEEPER_ENCRYPTION_KEY` anywhere you deploy the durable API layer. Vercel should treat this as a required server-side secret.
 - For a deployed app, add server-side Venice/Self envs in Vercel as well: `VENICE_API_KEY`, `VENICE_MODEL`, `SELF_MODE`, `SELF_API_URL`, `SELF_API_KEY`.
+- Add `UNISWAP_API_KEY` to enable the live Sepolia quote/swap path.
+- Add `NEXT_PUBLIC_ETHEREUM_SEPOLIA_RPC_URL` and `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` if you want to override the default public RPCs for Uniswap and x402 wallet flows.
+- Add `X402_FACILITATOR_URL` only if you want to override the default test facilitator at `https://x402.org/facilitator`.
+- The Uniswap sidecar expects a wallet with Sepolia ETH, and the x402 sidecar expects a wallet with Base Sepolia gas plus a small Base Sepolia USDC balance.
 
 No secrets belong in git.
 
@@ -188,6 +199,8 @@ No secrets belong in git.
 - Local mirrored API host: `apps/web/app/api/v1`
 - Live planner status: the buyer preview shows `venice-live` vs `venice-fallback`
 - Live Self status: runner acceptance now uses a QR/deeplink verification session flow when `SELF_MODE=live`
+- Live Uniswap status: the task studio and command center can capture a funding-normalization receipt once the connected wallet completes a Sepolia swap
+- Live x402 status: the command center can buy one paid Base Sepolia venue hint and feed it back into the private planner context
 
 ## Contracts and addresses
 

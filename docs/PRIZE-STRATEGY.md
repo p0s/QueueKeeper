@@ -2,11 +2,14 @@
 
 ## P0 targets
 - Synthesis Open Track
+- Protocol Labs / ERC-8004
 - Venice
 - MetaMask
 - Self
 - Arkhai
 - Celo
+- Uniswap
+- Base / x402
 
 ## Story by sponsor
 
@@ -27,3 +30,9 @@ QueueKeeper is designed around stablecoin-native micropayments and a mobile-firs
 
 ### Protocol Labs / ERC-8004
 QueueKeeper now treats the agent as a first-class product actor with visible identity, structured execution logs, bounded autonomy, and root `agent.json` / `agent_log.json` artifacts.
+
+### Uniswap
+QueueKeeper can normalize a planning budget on Ethereum Sepolia before task posting: wrap ETH to WETH, quote WETH -> USDC, sign Permit2, and submit the swap from the browser wallet.
+
+### Base / x402
+QueueKeeper exposes a paid venue-hint sidecar on Base Sepolia. The command center can buy one paid signal, write the receipt back into the task log, and let the next planner decision use that hint.

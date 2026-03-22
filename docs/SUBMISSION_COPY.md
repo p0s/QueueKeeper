@@ -22,13 +22,15 @@ QueueKeeper combines private planning, bounded spend permissions, verified runne
 - bounded permission policy UI with persisted MetaMask permission results
 - root `agent.json` and `agent_log.json` artifacts plus an in-product sponsor evidence page
 - env-backed ERC-8004 registration and agent wallet surface in the live app
+- Uniswap Sepolia budget normalization sidecar with real WETH -> USDC quote / approval / swap flow
+- Base Sepolia x402 venue-hint sidecar that can charge for one paid planning signal and write the receipt back into the task log
 
 ## What is still a fallback or mock
 - MetaMask delegation falls back to a bounded policy record when the permission request fails or is unavailable
 - the hosted product is still demo-grade rather than a production multi-tenant service
 - Self live verification still needs a final recorded real-device pass for submission
 - `ProofHashRegistry` is deployed but not in the active flow yet
-- Uniswap and Base/x402 sidecars are still reserved for the next sponsor pass
+- the Uniswap and x402 sidecars still need fresh demo-wallet receipts captured on the final recording wallet
 
 ## Deployed contracts
 - Escrow: `0xb566298bf1c1afa55f0edc514b2f9d990c82f98c`

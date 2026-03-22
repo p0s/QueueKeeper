@@ -39,6 +39,17 @@ export function EvidenceGrid({ evidence }: { evidence: EvidenceResponse }) {
               <a className="button secondary" href="/agent_log.json" rel="noreferrer" target="_blank">agent_log.json</a>
             </div>
           </section>
+          <section className="card">
+            <span className="eyebrow">Live sponsor rails</span>
+            <h3 className="section-title">Run the sidecars from the product flow</h3>
+            <p className="muted">
+              Uniswap funding normalization lives in task creation and the command center. The x402 paid venue hint runs inside the command center before the next agent decision.
+            </p>
+            <div className="cta-row" style={{ marginTop: 12 }}>
+              <a className="button secondary" href="/agent">Open Agent Mode</a>
+              <a className="button secondary" href="/tasks">Open task feed</a>
+            </div>
+          </section>
         </aside>
       </div>
     </main>

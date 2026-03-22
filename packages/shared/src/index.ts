@@ -438,6 +438,130 @@ export interface AgentLogResponse {
   log: AgentDecisionLogView[];
 }
 
+export interface UniswapCheckApprovalRequest {
+  walletAddress: string;
+  amount: string;
+  token: string;
+  chainId?: number;
+}
+
+export interface UniswapPreparedApproval {
+  to: string;
+  value: string;
+  from: string;
+  data: string;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  chainId: number;
+}
+
+export interface UniswapCheckApprovalResponse {
+  requestId?: string | null;
+  approval: UniswapPreparedApproval | null;
+  cancel?: UniswapPreparedApproval | null;
+  gasFee?: string | null;
+}
+
+export interface UniswapQuoteRequest {
+  swapper: string;
+  amount: string;
+  tokenIn: string;
+  tokenOut: string;
+  tokenInChainId?: number;
+  tokenOutChainId?: number;
+}
+
+export interface UniswapPermitData {
+  domain: Record<string, unknown>;
+  types: Record<string, Array<{ name: string; type: string }>>;
+  values: Record<string, unknown>;
+}
+
+export interface UniswapQuoteEnvelope {
+  chainId: number;
+  swapper: string;
+  tradeType: string;
+  quoteId?: string;
+  gasFee?: string;
+  gasFeeUSD?: string;
+  input: {
+    amount: string;
+    token: string;
+  };
+  output: {
+    amount: string;
+    token: string;
+    recipient?: string;
+  };
+  route?: unknown;
+  txFailureReasons?: string[];
+}
+
+export interface UniswapQuoteResponse {
+  requestId?: string | null;
+  routing?: string | null;
+  permitData?: UniswapPermitData | null;
+  quote: UniswapQuoteEnvelope;
+}
+
+export interface UniswapSwapRequest {
+  quote: UniswapQuoteEnvelope;
+  signature: string;
+  permitData?: UniswapPermitData | null;
+}
+
+export interface UniswapPreparedSwap {
+  to: string;
+  from: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+}
+
+export interface UniswapSwapResponse {
+  swap: UniswapPreparedSwap;
+  gasFee?: string | null;
+}
+
+export interface FundingNormalizationReceiptRequest {
+  buyerToken: string;
+  provider: "uniswap";
+  network: string;
+  txHash: string;
+  chainId: number;
+  inputToken: string;
+  outputToken: string;
+  inputAmount: string;
+  outputAmount: string;
+  quoteId?: string | null;
+  route?: string | null;
+}
+
+export interface PaidVenueHintResponse {
+  provider: "queuekeeper-x402";
+  taskId?: string | null;
+  signalId: string;
+  coarseArea: string;
+  timingWindow: string;
+  recommendation: string;
+  confidence: "watch" | "scout" | "hold";
+  summary: string;
+  purchasedAt: string;
+}
+
+export interface AgentToolPurchaseRequest {
+  buyerToken: string;
+  provider: "x402";
+  network: string;
+  txHash: string;
+  payer: string;
+  signal: PaidVenueHintResponse;
+}
+
 export interface EvidenceItemView {
   id: string;
   label: string;

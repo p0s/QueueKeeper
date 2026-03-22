@@ -3,6 +3,7 @@ import type {
   AcceptJobResponse,
   AgentDecisionResponse,
   AgentLogResponse,
+  AgentToolPurchaseRequest,
   ApproveStageRequest,
   CreateJobDraftRequest,
   CreateJobDraftResponse,
@@ -10,7 +11,15 @@ import type {
   DispatchJobRequest,
   DisputeStageRequest,
   EvidenceResponse,
+  FundingNormalizationReceiptRequest,
   PlannerInput,
+  UniswapCheckApprovalRequest,
+  UniswapCheckApprovalResponse,
+  UniswapQuoteRequest,
+  UniswapQuoteResponse,
+  UniswapSwapRequest,
+  UniswapSwapResponse,
+  PaidVenueHintResponse,
   QueueJobTimelineResponse,
   QueueJobsListResponse,
   QueueProofBundleView,
@@ -265,6 +274,50 @@ export class QueueKeeperClient {
 
   async getEvidence() {
     return this.request<EvidenceResponse>("/v1/evidence", {
+      method: "GET"
+    });
+  }
+
+  async recordTaskFundingNormalization(taskId: string, payload: FundingNormalizationReceiptRequest) {
+    return this.request<QueueJobTimelineResponse>(`/v1/tasks/${taskId}/funding/normalized`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${payload.buyerToken}` },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async recordTaskAgentToolPurchase(taskId: string, payload: AgentToolPurchaseRequest) {
+    return this.request<QueueJobTimelineResponse>(`/v1/tasks/${taskId}/agent/tool-purchase`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${payload.buyerToken}` },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async checkUniswapApproval(payload: UniswapCheckApprovalRequest) {
+    return this.request<UniswapCheckApprovalResponse>("/v1/uniswap/check-approval", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async getUniswapQuote(payload: UniswapQuoteRequest) {
+    return this.request<UniswapQuoteResponse>("/v1/uniswap/quote", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async buildUniswapSwap(payload: UniswapSwapRequest) {
+    return this.request<UniswapSwapResponse>("/v1/uniswap/swap", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async getPaidVenueHint(taskId?: string) {
+    const query = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
+    return this.request<PaidVenueHintResponse>(`/v1/x402/venue-hint${query}`, {
       method: "GET"
     });
   }
