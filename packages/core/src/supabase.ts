@@ -49,8 +49,16 @@ export async function hydrateSupabaseState(config: SupabaseStateConfig) {
 
   const db = new DatabaseSync(config.dbPath);
   try {
-    const secretKeys = db.prepare("SELECT secret_object_key AS object_key FROM jobs").all() as Array<{ object_key?: string }>;
-    const proofKeys = db.prepare("SELECT proof_bundle_key AS object_key FROM stages WHERE proof_bundle_key IS NOT NULL").all() as Array<{ object_key?: string }>;
+    let secretKeys: Array<{ object_key?: string }> = [];
+    let proofKeys: Array<{ object_key?: string }> = [];
+    try {
+      secretKeys = db.prepare("SELECT secret_object_key AS object_key FROM jobs").all() as Array<{ object_key?: string }>;
+      proofKeys = db.prepare("SELECT proof_bundle_key AS object_key FROM stages WHERE proof_bundle_key IS NOT NULL").all() as Array<{ object_key?: string }>;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("no such table")) {
+        throw error;
+      }
+    }
     const objectKeys = [...secretKeys, ...proofKeys]
       .map((row) => row.object_key)
       .filter((value): value is string => typeof value === "string" && value.length > 0);
