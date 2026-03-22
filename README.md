@@ -2,6 +2,9 @@
 
 QueueKeeper is a testnet-first private scout-and-hold procurement product: a human or agent principal can post a redacted task, reveal the exact destination only after verified acceptance, and pay only for the next verified increment instead of the whole promise.
 
+Live site:
+- `https://queuekeeper.xyz`
+
 ## What is real now
 
 - A durable core product layer lives in `packages/core`:
@@ -79,9 +82,10 @@ flowchart LR
 
 The durable API surface is available in the agent app and mirrored locally in the web app:
 
-- Public machine-facing handoff for real agents: `/skill.md`
-- Human-facing agent console: `/agent`
-- Machine-readable contract: `/api/v1/openapi.json`
+- Public machine-facing handoff for real agents: `https://queuekeeper.xyz/skill.md`
+- Example agent handoff command: `curl -s https://queuekeeper.xyz/skill.md`
+- Human-facing agent console: `https://queuekeeper.xyz/agent`
+- Machine-readable contract: `https://queuekeeper.xyz/api/v1/openapi.json`
 - `POST /v1/tasks/drafts` returns `buyerToken`; send it as `Authorization: Bearer <buyerToken>` on buyer-only routes such as `post`, `GET /v1/tasks/:taskId?viewer=buyer`, `agent/decide`, and `agent/log`.
 - Draft creation accepts `expiresInMinutes` or `expiresAt` (ISO-8601).
 
