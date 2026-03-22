@@ -576,9 +576,9 @@ export class QueueKeeperCore {
   }
 
   listJobs(viewer: QueueViewerRole = "public") {
-    const rows = this.db.prepare("SELECT * FROM jobs ORDER BY updated_at DESC").all() as CoreJobRow[];
-    const jobs = rows.map((row) => this.mapJobRow(row));
-    for (const row of jobs) this.reconcileJob(row.id);
+    const rows = this.db.prepare("SELECT id FROM jobs ORDER BY updated_at DESC").all() as Array<{ id: string }>;
+    for (const row of rows) this.reconcileJob(row.id);
+    const jobs = rows.map((row) => this.getJobRecord(String(row.id)));
     const visibleJobs = viewer === "public"
       ? jobs.filter((job) => job.status === "posted" && !job.acceptedRunnerAddress)
       : jobs;

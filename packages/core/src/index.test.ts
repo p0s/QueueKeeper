@@ -334,6 +334,16 @@ test("posted direct dispatch tasks can be accepted by another verified runner", 
   assert.equal(accepted.job.acceptedRunnerAddress, "0xb0b0000000000000000000000000000000000002");
 });
 
+test("public list excludes tasks that reconcile into refunded state", () => {
+  const core = createTestCore("public-reconcile");
+  const draft = createDraft(core, { mode: "VERIFIED_POOL", title: "Expires before listing" });
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  core.db.prepare("UPDATE jobs SET expires_at = ?2 WHERE id = ?1").run(draft.job.id, new Date(Date.now() - 1_000).toISOString());
+
+  const publicJobs = core.listJobs("public").jobs;
+  assert.ok(!publicJobs.some((job) => job.id === draft.job.id));
+});
+
 test("seed restores one visible verified-pool job when none remain public", () => {
   const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "queuekeeper-core-seeded-visible-"));
   const options = {
