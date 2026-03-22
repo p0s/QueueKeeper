@@ -378,6 +378,11 @@ export class QueueKeeperCore {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS public_tasks (
+        job_id TEXT PRIMARY KEY,
+        snapshot_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
     this.ensureColumn("jobs", "principal_mode", "TEXT NOT NULL DEFAULT 'HUMAN'");
     this.ensureColumn("verification_sessions", "access_token_hash", "TEXT");
@@ -502,6 +507,7 @@ export class QueueKeeperCore {
         mode,
         plannerAction
       });
+      this.deletePublicTaskProjection(jobId);
 
       return {
         job: this.getJob(jobId, "buyer", { buyerToken }),
@@ -548,6 +554,7 @@ export class QueueKeeperCore {
       onchainJobId: request.onchainJobId ?? null,
       txHash: request.txHash ?? null
     });
+    this.syncPublicTaskProjection(request.jobId);
 
     return this.getTimeline(request.jobId, "buyer", { buyerToken: request.buyerToken });
   }
@@ -567,6 +574,7 @@ export class QueueKeeperCore {
     this.recordEvent(jobId, "job.dispatched", "buyer", job.buyerAddress, "Buyer dispatched the job to a specific verified runner.", {
       runnerAddress: request.runnerAddress
     });
+    this.syncPublicTaskProjection(jobId);
 
     return this.getTimeline(jobId, "buyer", { buyerToken: request.buyerToken });
   }
@@ -576,14 +584,19 @@ export class QueueKeeperCore {
   }
 
   listJobs(viewer: QueueViewerRole = "public") {
+    if (viewer === "public") {
+      const rows = this.db.prepare("SELECT id FROM jobs ORDER BY updated_at DESC").all() as Array<{ id: string }>;
+      for (const row of rows) this.reconcileJob(row.id);
+      return {
+        jobs: this.listPublicTaskProjection()
+      };
+    }
+
     const rows = this.db.prepare("SELECT id FROM jobs ORDER BY updated_at DESC").all() as Array<{ id: string }>;
     for (const row of rows) this.reconcileJob(row.id);
     const jobs = rows.map((row) => this.getJobRecord(String(row.id)));
-    const visibleJobs = viewer === "public"
-      ? jobs.filter((job) => job.status === "posted" && !job.acceptedRunnerAddress)
-      : jobs;
     return {
-      jobs: visibleJobs.map((job) => this.toView(this.getJobRecord(job.id), viewer))
+      jobs: jobs.map((job) => this.toView(this.getJobRecord(job.id), viewer))
     };
   }
 
@@ -649,6 +662,7 @@ export class QueueKeeperCore {
       verificationProvider: verification.provider,
       verificationReference: verification.reference
     });
+    this.syncPublicTaskProjection(jobId);
 
     const acceptedJob = this.getJob(jobId, "runner", { revealToken });
     const secret = this.getRevealData(jobId, revealToken);
@@ -908,6 +922,7 @@ export class QueueKeeperCore {
       stageId: stage.id,
       reason: request.reason
     });
+    this.syncPublicTaskProjection(jobId);
 
     return this.getTimeline(jobId, "buyer", { buyerToken: request.buyerToken });
   }
@@ -940,6 +955,7 @@ export class QueueKeeperCore {
         note: request.note ?? null
       }
     );
+    this.syncPublicTaskProjection(taskId);
 
     return this.getTimeline(taskId, "buyer", { buyerToken: request.buyerToken });
   }
@@ -988,6 +1004,7 @@ export class QueueKeeperCore {
       mode: request.mode,
       status: request.status
     });
+    this.syncPublicTaskProjection(jobId);
     return this.getTimeline(jobId, "buyer", { buyerToken });
   }
 
@@ -1959,6 +1976,7 @@ export class QueueKeeperCore {
       `).run(jobId, nowIso());
       this.db.prepare("UPDATE jobs SET status = 'refunded', updated_at = ?2 WHERE id = ?1").run(jobId, nowIso());
       this.recordEvent(jobId, "job.refunded", "system", null, "Job expired and refunded all unreleased stages.", {});
+      this.syncPublicTaskProjection(jobId);
       return;
     }
 
@@ -2010,6 +2028,39 @@ export class QueueKeeperCore {
       openDispute ? "open" : job.disputeStatus === "settled" ? "settled" : "none",
       nowIso()
     );
+    this.syncPublicTaskProjection(jobId);
+  }
+
+  private listPublicTaskProjection(): QueueJobView[] {
+    const rows = this.db.prepare(`
+      SELECT snapshot_json
+      FROM public_tasks
+      ORDER BY updated_at DESC
+    `).all() as Array<{ snapshot_json: string }>;
+
+    return rows.map((row) => parseJson<QueueJobView>(String(row.snapshot_json)));
+  }
+
+  private syncPublicTaskProjection(jobId: string) {
+    const job = this.getJobRecord(jobId);
+    const listing = this.describePublicListing(job);
+    if (listing.status !== "visible") {
+      this.deletePublicTaskProjection(jobId);
+      return;
+    }
+
+    const snapshot = this.toView(job, "public");
+    this.db.prepare(`
+      INSERT INTO public_tasks (job_id, snapshot_json, updated_at)
+      VALUES (?1, ?2, ?3)
+      ON CONFLICT(job_id) DO UPDATE SET
+        snapshot_json = excluded.snapshot_json,
+        updated_at = excluded.updated_at
+    `).run(jobId, JSON.stringify(snapshot), nowIso());
+  }
+
+  private deletePublicTaskProjection(jobId: string) {
+    this.db.prepare("DELETE FROM public_tasks WHERE job_id = ?1").run(jobId);
   }
 
   private toView(job: CoreJobRecord, viewer: QueueViewerRole, auth: AuthContext = {}): QueueJobView {

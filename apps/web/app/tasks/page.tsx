@@ -4,7 +4,7 @@ import { loadPublicTasks } from "../../lib/public-board";
 export const dynamic = "force-dynamic";
 
 export default async function TaskFeedPage() {
-  const tasks = await loadPublicTasks();
+  const board = await loadPublicTasks();
 
   return (
     <main className="container job-list-shell fade-in">
@@ -17,7 +17,7 @@ export default async function TaskFeedPage() {
           Accept a redacted task, verify first, unlock the destination after acceptance, and get paid as each proof-backed step is completed.
         </p>
       </section>
-      <PublicTaskFeed initialTasks={tasks} />
+      <PublicTaskFeed initialBoard={board} />
     </main>
   );
 }

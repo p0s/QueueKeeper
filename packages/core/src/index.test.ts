@@ -344,6 +344,27 @@ test("public list excludes tasks that reconcile into refunded state", () => {
   assert.ok(!publicJobs.some((job) => job.id === draft.job.id));
 });
 
+test("public task projection mirrors post and accept visibility", () => {
+  const core = createTestCore("public-projection");
+  const draft = createDraft(core, {
+    mode: "VERIFIED_POOL",
+    title: "Projection listing",
+    selectedRunnerAddress: undefined
+  });
+
+  assert.equal(core.listJobs("public").jobs.some((job) => job.id === draft.job.id), false);
+
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+  assert.equal(core.listJobs("public").jobs.some((job) => job.id === draft.job.id), true);
+
+  core.acceptJob(draft.job.id, "0xa11ce00000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "projection-ref"
+  });
+  assert.equal(core.listJobs("public").jobs.some((job) => job.id === draft.job.id), false);
+});
+
 test("seed restores one visible verified-pool job when none remain public", () => {
   const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "queuekeeper-core-seeded-visible-"));
   const options = {

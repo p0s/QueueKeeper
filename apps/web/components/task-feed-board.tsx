@@ -8,7 +8,7 @@ function visibilityLabel(task: QueueJobView) {
     : "This posted task is public until a runner accepts it. Any selected runner stays a private preference.";
 }
 
-export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
+export function TaskFeedBoard({ source = "live", tasks }: { source?: "live" | "demo-fallback"; tasks: QueueJobView[] }) {
   if (tasks.length === 0) {
     return (
       <section className="card task-feed-card task-feed-empty">
@@ -61,7 +61,13 @@ export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
           <p className="muted" style={{ marginTop: 12 }}>{task.publicListingReason}</p>
 
           <div className="cta-row" style={{ marginTop: 16 }}>
-            <a className="button" href={`/tasks/${task.id}`}>View task</a>
+            {source === "demo-fallback" ? (
+              <a className="button" href={task.principalMode === "AGENT" ? "/agent" : "/human"}>
+                {task.principalMode === "AGENT" ? "Open agent demo" : "Open human demo"}
+              </a>
+            ) : (
+              <a className="button" href={`/tasks/${task.id}`}>View task</a>
+            )}
           </div>
         </section>
       ))}

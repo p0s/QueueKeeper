@@ -57,7 +57,7 @@ function json(status: number, body: unknown) {
   });
 }
 
-function withMessage<T extends Record<string, unknown>>(body: T, message: string): T & { message: string } {
+function withMessage<T extends object>(body: T, message: string): T & { message: string } {
   return {
     ...body,
     message

@@ -109,6 +109,8 @@ What each route is for:
 Current demo behavior:
 
 - when the durable store is empty, the core seeds one posted `DIRECT_DISPATCH` task and one posted `VERIFIED_POOL` task so the public board always has a truthful demo surface
+- the public board now has a separate durable `public_tasks` projection so the public `/tasks` page does not need to reconstruct listing state from private job rows
+- if the live public board is empty or unavailable, the web UI may fall back to clearly labeled seeded demo rows instead of showing a dead-end empty state
 
 ## 7. Core loop
 
@@ -159,6 +161,7 @@ Current behavior:
 - public task views expose redacted metadata only
 - reveal happens only after verified acceptance and valid authorization
 - proof media is stored offchain and only exposed to authorized buyers or accepted runners
+- the public board can be served from a durable redacted projection without exposing private task rows directly
 
 ## 9. Planner boundary
 

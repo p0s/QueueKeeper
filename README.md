@@ -84,6 +84,10 @@ Each sponsor rail strengthens a specific part of the product instead of sitting 
   - `/tasks/[taskId]` acts as a next-action-first command center with grouped stages and collapsed advanced receipts
   - `/runner/[jobId]` is optimized around verify → accept → submit next proof
   - `/evidence` groups sponsor proof into core loop, agent infrastructure, and sidecars
+- The public board now has a durable projection and a demo-safe fallback:
+  - `public_tasks` stores the redacted public task envelope separately from private task state
+  - `/tasks` and the homepage public board read that projection
+  - if the live public board is empty or unavailable, the UI shows clearly labeled seeded demo rows instead of a dead-end empty state
 - Exact destination remains encrypted at rest and only becomes visible to an accepted runner with a valid reveal token.
 - Proof bundles can include encrypted image media, not just hashes.
 - Planner output changes the actual stage plan:
@@ -167,6 +171,12 @@ The durable API surface is available in the agent app and mirrored locally in th
 - `POST /v1/uniswap/quote`
 - `POST /v1/uniswap/swap`
 - `GET /v1/x402/venue-hint`
+
+Public board behavior:
+
+- the durable backend keeps a separate `public_tasks` projection for posted, unaccepted task envelopes
+- `/tasks` reads that projection rather than reconstructing the board ad hoc from private job state
+- if the live projection is empty or unavailable, the web UI falls back to clearly labeled seeded demo rows
 
 ## Delegation model
 

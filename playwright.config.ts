@@ -39,7 +39,7 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=1 pnpm --filter @queuekeeper/web dev -- --hostname 127.0.0.1 --port 3004",
+    command: "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=1 pnpm --filter @queuekeeper/web exec next dev --hostname 127.0.0.1 --port 3004",
     url: baseURL,
     reuseExistingServer,
     timeout: 120_000

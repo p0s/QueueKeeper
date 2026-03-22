@@ -61,7 +61,7 @@ const sponsorRails = [
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const tasks = await loadPublicTasks();
+  const board = await loadPublicTasks();
 
   return (
     <main className="container hero-shell">
@@ -127,7 +127,7 @@ export default async function HomePage() {
           <span className="eyebrow">Public tasks</span>
           <h2 className="section-title">Public tasks, private intent</h2>
         </div>
-        <PublicTaskFeed initialTasks={tasks} />
+        <PublicTaskFeed initialBoard={board} />
       </section>
     </main>
   );
