@@ -5,6 +5,63 @@ QueueKeeper is a testnet-first private scout-and-hold procurement product: a hum
 Live site:
 - `https://queuekeeper.xyz`
 
+## Why this business model matters
+
+QueueKeeper is not just "pay someone to wait in line." It defines a different trust model for real-world service work:
+
+- the provider never has to risk delivering the entire service before getting paid
+- the buyer never has to risk paying for the entire promise up front
+- at any point in time, each side is only exposed to the next increment:
+  - the runner can lose only the next increment of service
+  - the buyer can lose only the next increment of payment
+
+That is the core business model. The trust boundary is reduced from "trust the whole engagement" to "trust the next small verified step."
+
+This only works because QueueKeeper is built around cheap, fast, frequent micropayments:
+
+- scout
+- arrival
+- repeated heartbeat
+- completion
+
+Traditional payment rails like credit cards are too coarse for this pattern:
+
+- they are not designed for frequent low-value releases tied to live proof checkpoints
+- settlement is too slow and operationally heavy
+- fees and dispute mechanics are built for larger, infrequent payments
+- they do not naturally expose machine-readable receipt state for each service increment
+
+QueueKeeper uses micropayments not as a gimmick, but because they make this trust-minimized service model possible.
+
+## Sponsor rails and why they matter
+
+Each sponsor rail strengthens a specific part of the product instead of sitting beside it as a disconnected demo.
+
+- Protocol Labs / ERC-8004
+  - makes the agent a visible economic actor with public identity, `agent.json`, and `agent_log.json`
+  - helps judges and other agents inspect what the system is, what it can do, and how it acted
+- Venice
+  - keeps hidden task details inside the private planner boundary
+  - lets the product reason over sensitive destination and fallback context without leaking it into public task payloads
+- MetaMask
+  - binds spend to a task-scoped policy instead of giving the agent uncapped wallet power
+  - keeps cap, expiry, token, contract, and task binding explicit in the product
+- Self
+  - blocks acceptance until the runner clears a verification gate
+  - makes reveal gating load-bearing instead of trusting any wallet to unlock the exact destination
+- Celo
+  - provides the cheap, quick micropayment rail that makes staged service increments economically practical
+  - makes the runner flow mobile-friendly and the payout ladder believable
+- Uniswap
+  - normalizes the buyer budget into the right payout asset before the task starts
+  - turns treasury preparation into a real in-product rail instead of an off-screen assumption
+- Base / x402
+  - sells one paid venue hint and writes the receipt back into the task log
+  - shows that agents can buy external signals during the task loop and use them in the next decision
+- Arkhai
+  - maps cleanly onto the product's staged obligation model: repeated checkpoints, releases, disputes, and settlement
+  - reinforces that the trust boundary is structured as explicit obligations, not informal promises
+
 ## What is real now
 
 - A durable core product layer lives in `packages/core`:
