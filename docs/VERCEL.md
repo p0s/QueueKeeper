@@ -26,6 +26,7 @@ QueueKeeper should use **Vercel** for the live app frontend (`apps/web`).
 - `NEXT_PUBLIC_QUEUEKEEPER_AGENT_WALLET`
 - `NEXT_PUBLIC_QUEUEKEEPER_AGENT_ENS` *(optional, once the ENS name is registered)*
 - `NEXT_PUBLIC_SYNTHESIS_AGENT_REGISTRATION_URL`
+- `NEXT_PUBLIC_ENS_RPC_URL` *(optional; defaults to a public Ethereum mainnet RPC for ENS lookups)*
 - `NEXT_PUBLIC_BLOCK_EXPLORER_BASE_URL=https://celo-sepolia.blockscout.com`
 - `QUEUEKEEPER_ENCRYPTION_KEY`
 - `QUEUEKEEPER_INTERNAL_API_TOKEN`

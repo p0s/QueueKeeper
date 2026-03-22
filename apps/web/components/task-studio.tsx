@@ -6,6 +6,7 @@ import type { AgentIdentityView, BuyerJobFormInput, PrincipalMode } from "@queue
 import { createAndPostJob, requestPlannerPreview } from "../lib/agent-client";
 import { getAgentIdentityManifest, procurementThesis } from "../lib/agent-manifest";
 import { createLiveJob } from "../lib/chain-client";
+import { resolveAddressOrEns, useEnsIdentity } from "../lib/ens";
 import { setBuyerToken } from "../lib/job-session";
 import { AgentIdentityCard } from "./agent-identity-card";
 
@@ -35,6 +36,7 @@ export function TaskStudio({
   const [plannerState, setPlannerState] = useState<PlannerState>({ loading: false });
   const [statusMessage, setStatusMessage] = useState("No task posted yet.");
   const [sendLiveTx, setSendLiveTx] = useState(false);
+  const runnerIdentity = useEnsIdentity(form.selectedRunnerAddress ?? null);
 
   function update<K extends keyof BuyerJobFormInput>(key: K, value: BuyerJobFormInput[K]) {
     setForm((current) => ({
@@ -47,7 +49,13 @@ export function TaskStudio({
   async function handlePreview() {
     setPlannerState({ loading: true });
     try {
-      const preview = await requestPlannerPreview({ ...form, principalMode });
+      const resolvedRunner = await resolveAddressOrEns(form.selectedRunnerAddress);
+      const nextForm = {
+        ...form,
+        principalMode,
+        selectedRunnerAddress: resolvedRunner.address ?? form.selectedRunnerAddress
+      };
+      const preview = await requestPlannerPreview(nextForm);
       setPlannerState({
         loading: false,
         result: `${preview.action} · ${preview.reason}`,
@@ -58,7 +66,7 @@ export function TaskStudio({
         ...current,
         principalMode,
         plannerPreview: preview,
-        selectedRunnerAddress: preview.selectedRunnerAddress ?? current.selectedRunnerAddress
+        selectedRunnerAddress: preview.selectedRunnerAddress ?? nextForm.selectedRunnerAddress ?? current.selectedRunnerAddress
       }));
     } catch (error) {
       setPlannerState({
@@ -71,13 +79,19 @@ export function TaskStudio({
   async function handlePost() {
     setStatusMessage("Posting task…");
     try {
-      const created = await createAndPostJob({ ...form, principalMode });
+      const resolvedRunner = await resolveAddressOrEns(form.selectedRunnerAddress);
+      const nextForm = {
+        ...form,
+        principalMode,
+        selectedRunnerAddress: resolvedRunner.address ?? form.selectedRunnerAddress
+      };
+      const created = await createAndPostJob(nextForm);
       setBuyerToken(created.job.id, created.buyerToken);
       let nextMessage = `Task ${created.job.id} posted with bounded spend.`;
 
       if (sendLiveTx) {
         try {
-          const live = await createLiveJob({ ...form, principalMode }, form.selectedRunnerAddress);
+          const live = await createLiveJob(nextForm, nextForm.selectedRunnerAddress);
           nextMessage += ` Live createTask tx captured with onchain id ${live.onchainJobId}.`;
         } catch (error) {
           nextMessage += ` Live createTask fell back to the hosted state path: ${error instanceof Error ? error.message : String(error)}`;
@@ -131,6 +145,19 @@ export function TaskStudio({
                     <option value="VERIFIED_POOL">Verified pool</option>
                   </select>
                 </label>
+                {(form.mode ?? "DIRECT_DISPATCH") === "DIRECT_DISPATCH" ? (
+                  <label className="field">
+                    <span>Dispatch runner address or ENS</span>
+                    <input className="input" value={form.selectedRunnerAddress ?? ""} onChange={(event) => update("selectedRunnerAddress", event.target.value)} />
+                    <span className="muted">
+                      {runnerIdentity.ensName
+                        ? `Resolved ENS: ${runnerIdentity.ensName}`
+                        : runnerIdentity.address
+                          ? `Resolved address: ${runnerIdentity.address}`
+                          : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
+                    </span>
+                  </label>
+                ) : null}
                 <label className="field">
                   <span>Timing window</span>
                   <input className="input" value={form.timingWindow ?? ""} onChange={(event) => update("timingWindow", event.target.value)} />

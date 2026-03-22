@@ -1,5 +1,8 @@
+"use client";
+
 import type { AgentIdentityView } from "@queuekeeper/shared";
 import { shortAddress } from "../lib/agent-manifest";
+import { useEnsIdentity } from "../lib/ens";
 
 export function AgentIdentityCard({
   identity,
@@ -8,6 +11,9 @@ export function AgentIdentityCard({
   identity: AgentIdentityView;
   compact?: boolean;
 }) {
+  const resolved = useEnsIdentity(identity.ensName ? null : identity.walletAddress);
+  const displayIdentity = identity.ensName ?? resolved.ensName ?? shortAddress(identity.walletAddress);
+
   return (
     <section className="card alt">
       <span className="eyebrow">Synthesis agent</span>
@@ -28,7 +34,7 @@ export function AgentIdentityCard({
         </div>
         <div className="summary-tile">
           <span className="eyebrow">Identity</span>
-          <strong>{identity.ensName ?? shortAddress(identity.walletAddress)}</strong>
+          <strong>{displayIdentity}</strong>
         </div>
       </div>
       {!compact ? (

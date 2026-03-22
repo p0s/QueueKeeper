@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { DelegationPolicyView, QueueJobView } from "@queuekeeper/shared";
 import { requestQueueKeeperAdvancedPermissions } from "../lib/metamask-smart-account";
 import { updateDemoDelegation } from "../lib/agent-client";
+import { useEnsIdentity } from "../lib/ens";
 
 type WalletPanelProps = {
   connected?: boolean;
@@ -23,6 +24,7 @@ export function WalletPanel({ connected = false, funded = false, jobId, buyerTok
   const [account, setAccount] = useState<string | null>(null);
   const [delegationStatus, setDelegationStatus] = useState(policy?.lastResult ?? "not requested");
   const shortAccount = account ? `${account.slice(0, 8)}…${account.slice(-6)}` : "none";
+  const ensIdentity = useEnsIdentity(account);
 
   useEffect(() => {
     setDelegationStatus(policy?.lastResult ?? "not requested");
@@ -108,7 +110,7 @@ export function WalletPanel({ connected = false, funded = false, jobId, buyerTok
       </div>
       <div className="summary-grid" style={{ marginTop: 12 }}>
         <div className="summary-tile"><span className="eyebrow">Wallet</span><strong>{status}</strong></div>
-        <div className="summary-tile"><span className="eyebrow">Account</span><strong className="mono-value">{shortAccount}</strong></div>
+        <div className="summary-tile"><span className="eyebrow">Account</span><strong>{ensIdentity.ensName ?? shortAccount}</strong></div>
         <div className="summary-tile"><span className="eyebrow">Delegation</span><strong>{policy?.status === "granted" ? "Active" : policy?.status === "requested" ? "Awaiting approval" : "Fallback mode"}</strong></div>
         <div className="summary-tile"><span className="eyebrow">Escrow</span><strong>{funded ? "Funded" : "Not funded"}</strong></div>
       </div>

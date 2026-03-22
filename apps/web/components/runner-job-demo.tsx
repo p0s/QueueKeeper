@@ -13,6 +13,7 @@ import {
   submitDemoProof
 } from "../lib/agent-client";
 import { acceptLiveJob, submitLiveProof } from "../lib/chain-client";
+import { resolveAddressOrEns, useEnsIdentity } from "../lib/ens";
 import { buildTxExplorerLinks } from "../lib/explorer";
 import { getRunnerRevealToken, setRunnerRevealToken } from "../lib/job-session";
 import { getCachedOnchainJobId, getCachedTxHashes, rememberTxHash } from "../lib/live-chain-cache";
@@ -52,6 +53,7 @@ export function RunnerJobDemo({
   const [proofNotes, setProofNotes] = useState<Record<string, string>>({});
   const [proofFiles, setProofFiles] = useState<Record<string, File[]>>({});
   const [selectedBundle, setSelectedBundle] = useState<Awaited<ReturnType<typeof fetchProofBundle>> | null>(null);
+  const runnerIdentity = useEnsIdentity(runnerAddress);
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
   const stickyAction = !job.acceptedRunnerAddress
     ? handleAccept
@@ -127,6 +129,11 @@ export function RunnerJobDemo({
 
   async function handleAccept() {
     setAcceptState("Checking verification gate…");
+    const resolvedRunner = await resolveAddressOrEns(runnerAddress);
+    if (!resolvedRunner.address) {
+      setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
+      return;
+    }
 
     let txHash: string | undefined;
     if (sendLiveTx && onchainJobId) {
@@ -143,7 +150,7 @@ export function RunnerJobDemo({
     try {
       const accepted = await requestRunnerAcceptance({
         jobId,
-        runnerAddress,
+        runnerAddress: resolvedRunner.address,
         verificationPayload: {
           reference: verificationReference,
           sessionId: liveSelfMode ? selfSession?.sessionId : undefined,
@@ -253,8 +260,15 @@ export function RunnerJobDemo({
           <h2 className="section-title">{nextActionLabel}</h2>
           <p className="muted">{nextActionCopy}</p>
           <label className="field">
-            <span>Runner address</span>
+            <span>Runner address or ENS</span>
             <input className="input" value={runnerAddress} onChange={(event) => setRunnerAddress(event.target.value)} />
+            <span className="muted">
+              {runnerIdentity.ensName
+                ? `Resolved ENS: ${runnerIdentity.ensName}`
+                : runnerIdentity.address
+                  ? `Resolved address: ${runnerIdentity.address}`
+                  : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
+            </span>
           </label>
           <label className="field">
             <span>Verification reference</span>
@@ -265,7 +279,12 @@ export function RunnerJobDemo({
               <button
                 className="button"
                 onClick={async () => {
-                  const session = await createSelfVerificationSession(jobId, runnerAddress);
+                  const resolvedRunner = await resolveAddressOrEns(runnerAddress);
+                  if (!resolvedRunner.address) {
+                    setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
+                    return;
+                  }
+                  const session = await createSelfVerificationSession(jobId, resolvedRunner.address);
                   setSelfSession(session);
                   setAcceptState(`Self verification session created · ${session.sessionId}`);
                 }}
