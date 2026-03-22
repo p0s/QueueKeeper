@@ -1,7 +1,7 @@
-import { getQueueKeeperCore } from "@queuekeeper/core";
 import { LandingModeHero } from "../components/landing-mode-hero";
 import { TrustLoopIllustration } from "../components/minimalist-graphics";
 import { PublicTaskFeed } from "../components/public-task-feed";
+import { loadPublicTasks } from "../lib/public-board";
 
 const benefitCards = [
   ["Direct buyer decisions", "Stop or continue on your terms."],
@@ -61,7 +61,7 @@ const sponsorRails = [
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const tasks = (await getQueueKeeperCore()).listTasks("public").tasks;
+  const tasks = await loadPublicTasks();
 
   return (
     <main className="container hero-shell">

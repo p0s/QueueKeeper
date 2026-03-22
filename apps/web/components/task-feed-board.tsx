@@ -1,3 +1,5 @@
+"use client";
+
 import type { QueueJobView } from "@queuekeeper/shared";
 
 function visibilityLabel(task: QueueJobView) {
@@ -14,7 +16,7 @@ export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
           <span className="eyebrow">No open tasks right now</span>
           <h3 className="subsection-title">Nothing is currently available to claim.</h3>
           <p className="muted">
-            Verified-pool tasks appear here after a principal posts a redacted brief. Check back soon or open the homepage
+            Posted tasks appear here after a principal posts a redacted brief. Check back soon or open the homepage
             to create the next task.
           </p>
         </div>

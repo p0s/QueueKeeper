@@ -11,7 +11,7 @@ coverage
 artifacts
 cache
 broadcast
-lib
+contracts/lib
 synthesis-registration.json
 
 .next

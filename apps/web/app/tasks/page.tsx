@@ -1,10 +1,10 @@
-import { getQueueKeeperCore } from "@queuekeeper/core";
 import { PublicTaskFeed } from "../../components/public-task-feed";
+import { loadPublicTasks } from "../../lib/public-board";
 
 export const dynamic = "force-dynamic";
 
 export default async function TaskFeedPage() {
-  const tasks = (await getQueueKeeperCore()).listTasks("public").tasks;
+  const tasks = await loadPublicTasks();
 
   return (
     <main className="container job-list-shell fade-in">
