@@ -1131,7 +1131,7 @@ export class QueueKeeperCore {
       mode: job.mode,
       candidates: [
         {
-          address: job.acceptedRunnerAddress ?? job.selectedRunnerAddress ?? "0xa11ce0000000000000000000000000000000001",
+          address: job.acceptedRunnerAddress ?? job.selectedRunnerAddress ?? "0xa11ce00000000000000000000000000000000001",
           score: job.acceptedRunnerAddress ? 95 : 88,
           verifiedHuman: Boolean(job.acceptedRunnerAddress || job.selectedRunnerAddress),
           etaMinutes: pendingStage?.key === "scout" ? 6 : 2
@@ -1300,7 +1300,7 @@ export class QueueKeeperCore {
       mode: "DIRECT_DISPATCH",
       candidates: [
         {
-          address: "0xa11ce0000000000000000000000000000000001",
+          address: "0xa11ce00000000000000000000000000000000001",
           score: 92,
           verifiedHuman: true,
           etaMinutes: 6
@@ -1311,7 +1311,7 @@ export class QueueKeeperCore {
       summary: {
         action: "scout-then-hold",
         reason: "Urgency or completion upside justifies immediate hold after a positive scout signal.",
-        selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+        selectedRunnerAddress: "0xa11ce00000000000000000000000000000000001"
       },
       meta: {
         provider: "mock"
@@ -1338,7 +1338,7 @@ export class QueueKeeperCore {
       heartbeatCount: 3,
       heartbeatIntervalSeconds: 300,
       buyerAddress: "0xb0b0000000000000000000000000000000000001",
-      selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
+      selectedRunnerAddress: "0xa11ce00000000000000000000000000000000001",
       plannerPreview: plannerPreviewResponseExample.summary
     };
 
@@ -1874,7 +1874,7 @@ export class QueueKeeperCore {
         heartbeatCount: 3,
         heartbeatIntervalSeconds: 300,
         buyerAddress: "0xb0b0000000000000000000000000000000000001",
-        selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001",
+        selectedRunnerAddress: "0xa11ce00000000000000000000000000000000001",
         plannerAction: "scout-then-hold",
         plannerReason: "Seeded dispatch-first demo path.",
         plannerProvider: "seed"

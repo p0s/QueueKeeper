@@ -102,7 +102,7 @@ export function RunnerJobDemo({
   liveSelfMode?: boolean;
 }) {
   const [job, setJob] = useState(initialJob);
-  const [runnerAddress, setRunnerAddress] = useState(initialJob.acceptedRunnerAddress ?? initialJob.selectedRunnerAddress ?? "0xa11ce0000000000000000000000000000000001");
+  const [runnerAddress, setRunnerAddress] = useState(initialJob.acceptedRunnerAddress ?? initialJob.selectedRunnerAddress ?? "0xa11ce00000000000000000000000000000000001");
   const [verificationReference, setVerificationReference] = useState(`self-${jobId}`);
   const [selfSession, setSelfSession] = useState<SelfVerificationSessionView | null>(null);
   const [acceptState, setAcceptState] = useState("Not accepted yet");
