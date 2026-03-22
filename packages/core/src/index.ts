@@ -179,17 +179,29 @@ function defaultDataDir() {
   return path.join(process.cwd(), ".queuekeeper-data");
 }
 
-function getEncryptionKey() {
+function readOrCreateLocalEncryptionKey(dataDir: string) {
+  const keyPath = path.join(dataDir, ".queuekeeper-encryption-key");
+  if (fs.existsSync(keyPath)) {
+    return fs.readFileSync(keyPath, "utf8").trim();
+  }
+
+  ensureDir(dataDir);
+  const generated = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(keyPath, generated, { mode: 0o600 });
+  return generated;
+}
+
+function getEncryptionKey(dataDir: string, requireConfigured = false) {
   const configured = process.env.QUEUEKEEPER_ENCRYPTION_KEY;
   if (configured) {
     return crypto.createHash("sha256").update(configured).digest();
   }
 
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
+  if (requireConfigured || (process.env.NODE_ENV === "production" && process.env.VERCEL)) {
     throw new Error("QUEUEKEEPER_ENCRYPTION_KEY is required in production.");
   }
 
-  return crypto.createHash("sha256").update("queuekeeper-dev-encryption-key").digest();
+  return crypto.createHash("sha256").update(readOrCreateLocalEncryptionKey(dataDir)).digest();
 }
 
 function encryptPayload(key: Buffer, payload: Buffer) {
@@ -243,7 +255,7 @@ export class QueueKeeperCore {
     const dataDir = config?.dataDir ?? process.env.QUEUEKEEPER_DATA_DIR ?? defaultDataDir();
     const databasePath = config?.databasePath ?? process.env.QUEUEKEEPER_DATABASE_PATH ?? path.join(dataDir, "queuekeeper.sqlite");
     const objectDir = config?.objectDir ?? process.env.QUEUEKEEPER_OBJECT_DIR ?? path.join(dataDir, "objects");
-    const encryptionKey = config?.encryptionKey ?? getEncryptionKey();
+    const encryptionKey = config?.encryptionKey ?? getEncryptionKey(dataDir);
     const arbiterToken = config?.arbiterToken ?? process.env.QUEUEKEEPER_ARBITER_TOKEN ?? null;
 
     ensureDir(path.dirname(databasePath));
@@ -818,6 +830,9 @@ export class QueueKeeperCore {
     }
 
     const stage = this.getStageById(stageId);
+    if (stage.jobId !== jobId) {
+      throw this.error("NOT_FOUND", "Stage not found for job.");
+    }
     if (!stage.proofBundleKey) return null;
     const bundle = this.objectStore.readJson<StoredProofBundle>(stage.proofBundleKey);
     return {
@@ -2157,7 +2172,13 @@ export class QueueKeeperCore {
   }
 
   private getTargetStage(jobId: string, request: SubmitProofRequest) {
-    if (request.stageId) return this.getStageById(request.stageId);
+    if (request.stageId) {
+      const stage = this.getStageById(request.stageId);
+      if (stage.jobId !== jobId) {
+        throw this.error("NOT_FOUND", "Stage not found for job.");
+      }
+      return stage;
+    }
     const sequence = request.sequence ?? 1;
     const row = this.db.prepare("SELECT * FROM stages WHERE job_id = ?1 AND stage_key = ?2 AND sequence = ?3").get(jobId, request.stageKey, sequence) as CoreStageRow | undefined;
     if (!row) throw this.error("NOT_FOUND", "Target stage was not found.");
@@ -2365,7 +2386,8 @@ export async function getQueueKeeperCore() {
       const core = new QueueKeeperCore({
         dataDir: supabase.runtimeDir,
         databasePath: supabase.dbPath,
-        objectDir: supabase.objectDir
+        objectDir: supabase.objectDir,
+        encryptionKey: getEncryptionKey(supabase.runtimeDir, true)
       });
       coreRemoteSync.set(core, supabase);
       await persistSupabaseState(supabase);

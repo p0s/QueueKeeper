@@ -459,6 +459,18 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         let verification: SelfVerificationResult;
         if (payload.verificationPayload.sessionId) {
           const session = core.getSelfVerificationSessionForVerification(payload.verificationPayload.sessionId);
+          if (session.runnerAddress.toLowerCase() !== payload.runnerAddress.toLowerCase()) {
+            return json(403, {
+              accepted: false,
+              reason: "Verification session belongs to another runner.",
+              verification: {
+                status: "blocked",
+                provider: "self",
+                reference: session.reference,
+                reason: "Verification session belongs to another runner."
+              }
+            });
+          }
           verification = session.status === "verified"
             ? {
                 status: "verified",

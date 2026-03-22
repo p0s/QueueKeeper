@@ -8,11 +8,28 @@ import {
 } from "@queuekeeper/shared";
 
 export type HiddenPlannerRequest = PlannerInput;
+const hiddenPlannerFields = ["hiddenExactLocation", "hiddenNotes", "maxBudget"];
 
 function parseSelfJson<T>(value: unknown): T | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   if (typeof value !== "string") return value as T;
   return JSON.parse(value) as T;
+}
+
+function buildPreviewResult(input: HiddenPlannerRequest, provider: string, reason?: string) {
+  const decision = buildPlannerDecision(input);
+  return {
+    summary: toPublicPlannerSummary(decision),
+    meta: {
+      provider,
+      ...(reason ? { reason } : {}),
+      hiddenFieldsPersistedServerSideOnly: hiddenPlannerFields
+    }
+  };
+}
+
+export async function runPreviewPlanner(input: HiddenPlannerRequest) {
+  return buildPreviewResult(input, "deterministic-preview");
 }
 
 export async function runPlanner(input: HiddenPlannerRequest) {
@@ -91,31 +108,23 @@ export async function runPlanner(input: HiddenPlannerRequest) {
           }),
           meta: {
             provider: "venice-live",
-            hiddenFieldsPersistedServerSideOnly: ["hiddenExactLocation", "hiddenNotes", "maxBudget"]
+            hiddenFieldsPersistedServerSideOnly: hiddenPlannerFields
           }
         };
       }
     } catch (error) {
-      const decision = buildPlannerDecision(input);
-      return {
-        summary: toPublicPlannerSummary(decision),
-        meta: {
-          provider: "venice-fallback",
-          reason: error instanceof Error ? error.message : String(error),
-          hiddenFieldsPersistedServerSideOnly: ["hiddenExactLocation", "hiddenNotes", "maxBudget"]
-        }
-      };
+      return buildPreviewResult(input, "venice-fallback", error instanceof Error ? error.message : String(error));
     }
   }
 
-  const decision = buildPlannerDecision(input);
-  return {
-    summary: toPublicPlannerSummary(decision),
-    meta: {
-      provider: "mock",
-      hiddenFieldsPersistedServerSideOnly: ["hiddenExactLocation", "hiddenNotes", "maxBudget"]
-    }
-  };
+  return buildPreviewResult(input, "mock");
+}
+
+function mockVerificationAllowed() {
+  if (String(process.env.QUEUEKEEPER_ALLOW_MOCK_VERIFICATION ?? "").toLowerCase() === "true") {
+    return true;
+  }
+  return process.env.NODE_ENV !== "production" && !process.env.VERCEL;
 }
 
 export async function verifyRunner(payload: AcceptJobVerificationPayload): Promise<SelfVerificationResult> {
@@ -185,6 +194,15 @@ export async function verifyRunner(payload: AcceptJobVerificationPayload): Promi
       provider: "self",
       reference: payload.reference ?? "self-live-blocked",
       reason
+    };
+  }
+
+  if (!mockVerificationAllowed()) {
+    return {
+      status: "blocked",
+      provider: "mock-self",
+      reference: payload.reference ?? "mock-self-disabled",
+      reason: "Mock verification is disabled in hosted environments. Configure live Self verification or explicitly opt in for a local demo."
     };
   }
 

@@ -177,3 +177,58 @@ test("openapi advertises the externally reachable /api/v1 server base", async ()
   const json = await response.json() as { servers?: Array<{ url?: string }> };
   assert.equal(json.servers?.[0]?.url, "https://queuekeeper.xyz/api/v1");
 });
+
+test("verified self sessions cannot be replayed for a different runner address", async () => {
+  const core = installTestCore("runner-binding");
+  const draft = core.createTaskDraft({
+    mode: "VERIFIED_POOL",
+    title: "Runner binding",
+    coarseArea: "Moscone South",
+    timingWindow: "Today",
+    exactLocation: "South entrance line",
+    hiddenNotes: "Hold only if short",
+    maxSpendUsd: 30,
+    scoutFeeUsd: 4,
+    arrivalFeeUsd: 6,
+    heartbeatFeeUsd: 5,
+    completionFeeUsd: 15,
+    expiresInMinutes: 60
+  });
+  core.postTask({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  const session = core.createSelfVerificationSession(
+    draft.job.id,
+    "0xa11ce0000000000000000000000000000000001",
+    "https://queuekeeper.test"
+  );
+  core.completeSelfVerificationSession(session.sessionId, { verified: true });
+
+  const response = await handleQueueKeeperApi(new Request(`https://queuekeeper.test/api/v1/tasks/${draft.job.id}/accept`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      runnerAddress: "0xb0b0000000000000000000000000000000000002",
+      verificationPayload: {
+        sessionId: session.sessionId
+      }
+    })
+  }), {
+    plan: async () => ({
+      summary: {
+        action: "scout-only",
+        reason: "unused"
+      }
+    }),
+    verify
+  });
+
+  assert.equal(response.status, 403);
+  const json = await response.json() as {
+    accepted: boolean;
+    reason: string;
+  };
+  assert.equal(json.accepted, false);
+  assert.equal(json.reason, "Verification session belongs to another runner.");
+});

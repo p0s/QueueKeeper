@@ -15,6 +15,13 @@
     "lint": "pnpm -r lint",
     "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv"
   },
+  "pnpm": {
+    "overrides": {
+      "@metamask/sdk": "0.33.1",
+      "@metamask/sdk-communication-layer": "0.33.1",
+      "underscore": "1.13.8"
+    }
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8"
   }

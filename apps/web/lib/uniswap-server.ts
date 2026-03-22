@@ -3,6 +3,7 @@ import {
   encodeFunctionData,
   erc20Abi,
   http,
+  isAddress,
   maxUint256,
   type Address
 } from "viem";
@@ -18,6 +19,38 @@ import type {
 
 const uniswapApiBase = "https://trade-api.gateway.uniswap.org/v1";
 const permit2Address = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as Address;
+const ethereumSepoliaChainId = 11155111;
+
+function requireAddress(value: string, label: string) {
+  if (!isAddress(value)) {
+    throw new Error(`${label} must be a valid EVM address.`);
+  }
+  return value as Address;
+}
+
+function requirePositiveIntegerString(value: string, label: string) {
+  if (!/^[0-9]+$/.test(value) || value === "0") {
+    throw new Error(`${label} must be a positive integer string.`);
+  }
+  if (value.length > 80) {
+    throw new Error(`${label} is too large.`);
+  }
+  return value;
+}
+
+function requireSepoliaChainId(chainId: number, label: string) {
+  if (chainId !== ethereumSepoliaChainId) {
+    throw new Error(`${label} currently supports Ethereum Sepolia only.`);
+  }
+  return chainId;
+}
+
+function requireHexString(value: string, label: string) {
+  if (!/^0x[0-9a-fA-F]+$/.test(value)) {
+    throw new Error(`${label} must be a hex string.`);
+  }
+  return value;
+}
 
 function getUniswapApiKey() {
   const apiKey = process.env.UNISWAP_API_KEY?.trim();
@@ -44,7 +77,8 @@ async function postUniswap<T>(path: string, body: unknown): Promise<T> {
       "x-universal-router-version": "2.0"
     },
     body: JSON.stringify(body),
-    cache: "no-store"
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000)
   });
 
   const json = (await response.json()) as T & { error?: string; detail?: string; message?: string };
@@ -55,20 +89,20 @@ async function postUniswap<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function requestUniswapApproval(input: UniswapCheckApprovalRequest): Promise<UniswapCheckApprovalResponse> {
-  const chainId = input.chainId ?? 11155111;
-  if (chainId !== 11155111) {
-    throw new Error("QueueKeeper Uniswap normalization currently supports Ethereum Sepolia only.");
-  }
+  const chainId = requireSepoliaChainId(input.chainId ?? ethereumSepoliaChainId, "chainId");
+  const token = requireAddress(input.token, "token");
+  const walletAddress = requireAddress(input.walletAddress, "walletAddress");
+  const amount = requirePositiveIntegerString(input.amount, "amount");
 
   const publicClient = getSepoliaClient();
   const allowance = await publicClient.readContract({
-    address: input.token as Address,
+    address: token,
     abi: erc20Abi,
     functionName: "allowance",
-    args: [input.walletAddress as Address, permit2Address]
+    args: [walletAddress, permit2Address]
   });
 
-  if (allowance >= BigInt(input.amount)) {
+  if (allowance >= BigInt(amount)) {
     return {
       approval: null,
       cancel: null,
@@ -82,8 +116,8 @@ export async function requestUniswapApproval(input: UniswapCheckApprovalRequest)
     gasFee: null,
     cancel: null,
     approval: {
-      to: input.token,
-      from: input.walletAddress,
+      to: token,
+      from: walletAddress,
       value: "0",
       data: encodeFunctionData({
         abi: erc20Abi,
@@ -96,24 +130,34 @@ export async function requestUniswapApproval(input: UniswapCheckApprovalRequest)
 }
 
 export async function requestUniswapQuote(input: UniswapQuoteRequest): Promise<UniswapQuoteResponse> {
+  const tokenInChainId = requireSepoliaChainId(input.tokenInChainId ?? ethereumSepoliaChainId, "tokenInChainId");
+  const tokenOutChainId = requireSepoliaChainId(input.tokenOutChainId ?? ethereumSepoliaChainId, "tokenOutChainId");
   return postUniswap<UniswapQuoteResponse>("/quote", {
     type: "EXACT_INPUT",
-    tokenInChainId: input.tokenInChainId ?? 11155111,
-    tokenOutChainId: input.tokenOutChainId ?? 11155111,
+    tokenInChainId,
+    tokenOutChainId,
     generatePermitAsTransaction: false,
     autoSlippage: "DEFAULT",
     routingPreference: "BEST_PRICE",
     spreadOptimization: "EXECUTION",
     urgency: "normal",
     permitAmount: "FULL",
-    amount: input.amount,
-    tokenIn: input.tokenIn,
-    tokenOut: input.tokenOut,
-    swapper: input.swapper
+    amount: requirePositiveIntegerString(input.amount, "amount"),
+    tokenIn: requireAddress(input.tokenIn, "tokenIn"),
+    tokenOut: requireAddress(input.tokenOut, "tokenOut"),
+    swapper: requireAddress(input.swapper, "swapper")
   });
 }
 
 export async function requestUniswapSwap(input: UniswapSwapRequest): Promise<UniswapSwapResponse> {
+  requireSepoliaChainId(input.quote.chainId, "quote.chainId");
+  requireAddress(input.quote.swapper, "quote.swapper");
+  requireAddress(input.quote.input.token, "quote.input.token");
+  requireAddress(input.quote.output.token, "quote.output.token");
+  requirePositiveIntegerString(input.quote.input.amount, "quote.input.amount");
+  requirePositiveIntegerString(input.quote.output.amount, "quote.output.amount");
+  requireHexString(input.signature, "signature");
+
   return postUniswap<UniswapSwapResponse>("/swap", {
     quote: input.quote,
     signature: input.signature,

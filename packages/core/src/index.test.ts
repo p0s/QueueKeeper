@@ -180,6 +180,79 @@ test("self session polling requires the session access token", () => {
   );
 });
 
+test("submitProof rejects stage ids from another job", () => {
+  const core = createTestCore("cross-job-submit");
+  const victim = createDraft(core, {
+    title: "Victim job",
+    selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+  });
+  const attacker = createDraft(core, {
+    title: "Attacker job",
+    selectedRunnerAddress: "0xb0b0000000000000000000000000000000000002"
+  });
+
+  core.postJob({ jobId: victim.job.id, buyerToken: victim.buyerToken });
+  core.postJob({ jobId: attacker.job.id, buyerToken: attacker.buyerToken });
+
+  const accepted = core.acceptJob(attacker.job.id, "0xb0b0000000000000000000000000000000000002", {
+    status: "verified",
+    provider: "self",
+    reference: "cross-job-submit"
+  });
+  const victimScoutStageId = core.getJob(victim.job.id, "buyer", {
+    buyerToken: victim.buyerToken
+  }).stages.find((stage) => stage.key === "scout")?.stageId;
+
+  assert.ok(victimScoutStageId);
+  assert.throws(
+    () => core.submitProof(attacker.job.id, accepted.acceptanceRecord.revealToken, {
+      stageId: victimScoutStageId,
+      stageKey: "scout",
+      proofHash: "0xattacker-proof"
+    }),
+    /Stage not found for job/
+  );
+});
+
+test("getProofBundle rejects stage ids from another job", () => {
+  const core = createTestCore("cross-job-bundle");
+  const victim = createDraft(core, {
+    title: "Victim bundle",
+    selectedRunnerAddress: "0xa11ce0000000000000000000000000000000001"
+  });
+  const attacker = createDraft(core, {
+    title: "Attacker bundle",
+    selectedRunnerAddress: "0xb0b0000000000000000000000000000000000002"
+  });
+
+  core.postJob({ jobId: victim.job.id, buyerToken: victim.buyerToken });
+  core.postJob({ jobId: attacker.job.id, buyerToken: attacker.buyerToken });
+
+  const accepted = core.acceptJob(victim.job.id, "0xa11ce0000000000000000000000000000000001", {
+    status: "verified",
+    provider: "self",
+    reference: "cross-job-bundle"
+  });
+  const victimScoutStageId = core.getJob(victim.job.id, "buyer", {
+    buyerToken: victim.buyerToken
+  }).stages.find((stage) => stage.key === "scout")?.stageId;
+
+  assert.ok(victimScoutStageId);
+  core.submitProof(victim.job.id, accepted.acceptanceRecord.revealToken, {
+    stageId: victimScoutStageId,
+    stageKey: "scout",
+    proofHash: "0xvictim-proof",
+    note: "Victim proof bundle"
+  });
+
+  assert.throws(
+    () => core.getProofBundle(attacker.job.id, victimScoutStageId, {
+      buyerToken: attacker.buyerToken
+    }),
+    /Stage not found for job/
+  );
+});
+
 test("public direct-dispatch view hides runner assignment", () => {
   const core = createTestCore("dispatch-redaction");
   const draft = createDraft(core, {
