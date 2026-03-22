@@ -125,6 +125,7 @@ type QueueKeeperCoreConfig = {
   objectDir: string;
   encryptionKey: Buffer;
   arbiterToken: string | null;
+  seedDemoData?: boolean;
 };
 
 type VerificationSessionRow = Record<string, unknown>;
@@ -266,15 +267,18 @@ export class QueueKeeperCore {
     const objectDir = config?.objectDir ?? process.env.QUEUEKEEPER_OBJECT_DIR ?? path.join(dataDir, "objects");
     const encryptionKey = config?.encryptionKey ?? getEncryptionKey(dataDir);
     const arbiterToken = config?.arbiterToken ?? process.env.QUEUEKEEPER_ARBITER_TOKEN ?? null;
+    const seedDemoData = config?.seedDemoData ?? true;
 
     ensureDir(path.dirname(databasePath));
     ensureDir(objectDir);
 
-    this.config = { dataDir, databasePath, objectDir, encryptionKey, arbiterToken };
+    this.config = { dataDir, databasePath, objectDir, encryptionKey, arbiterToken, seedDemoData };
     this.db = new DatabaseSync(databasePath);
     this.objectStore = new EncryptedObjectStore(objectDir, encryptionKey);
     this.initialize();
-    this.seedIfEmpty();
+    if (seedDemoData) {
+      this.seedIfEmpty();
+    }
   }
 
   initialize() {
@@ -2403,10 +2407,10 @@ export async function getQueueKeeperCore() {
       dataDir: supabase.runtimeDir,
       databasePath: supabase.dbPath,
       objectDir: supabase.objectDir,
-      encryptionKey: getEncryptionKey(supabase.runtimeDir, true)
+      encryptionKey: getEncryptionKey(supabase.runtimeDir, true),
+      seedDemoData: false
     });
     coreRemoteSync.set(core, supabase);
-    await persistSupabaseState(supabase);
     return core;
   }
 
