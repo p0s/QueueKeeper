@@ -108,9 +108,9 @@ const queueFigures: QueueFigure[] = [
   }
 ];
 
-export function QueueLineBackground() {
+export function QueueLineBackground({ mode }: { mode: "human" | "agent" }) {
   return (
-    <div aria-hidden="true" className="hero-queue-background">
+    <div aria-hidden="true" className={`hero-queue-background ${mode === "agent" ? "agent" : "human"}`}>
       <svg aria-hidden="true" className="hero-queue-svg" viewBox="0 0 920 520">
         <ellipse className="queue-aura" cx="624" cy="404" rx="274" ry="106" />
         <ellipse className="queue-aura queue-aura-soft" cx="318" cy="432" rx="248" ry="82" />
