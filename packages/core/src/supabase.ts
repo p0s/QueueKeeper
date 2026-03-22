@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type SupabaseStateConfig = {
@@ -44,28 +45,28 @@ export async function hydrateSupabaseState(config: SupabaseStateConfig) {
   if (!stateDownload.error && stateDownload.data) {
     fs.writeFileSync(config.dbPath, Buffer.from(await stateDownload.data.arrayBuffer()));
   }
+  if (!fs.existsSync(config.dbPath)) return;
 
-  async function walk(prefix: string, localBase: string) {
-    const { data: entries } = await config.client.storage.from(config.bucket).list(prefix, {
-      limit: 1000,
-      sortBy: { column: "name", order: "asc" }
-    });
-    for (const entry of entries ?? []) {
-      if (!entry.id) {
-        await walk(`${prefix}/${entry.name}`, path.join(localBase, entry.name));
-        continue;
-      }
-      const objectPath = `${prefix}/${entry.name}`;
-      const download = await config.client.storage.from(config.bucket).download(objectPath);
+  const db = new DatabaseSync(config.dbPath);
+  try {
+    const secretKeys = db.prepare("SELECT secret_object_key AS object_key FROM jobs").all() as Array<{ object_key?: string }>;
+    const proofKeys = db.prepare("SELECT proof_bundle_key AS object_key FROM stages WHERE proof_bundle_key IS NOT NULL").all() as Array<{ object_key?: string }>;
+    const objectKeys = [...secretKeys, ...proofKeys]
+      .map((row) => row.object_key)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    for (const objectKey of objectKeys) {
+      const localPath = path.join(config.objectDir, objectKey);
+      if (fs.existsSync(localPath)) continue;
+      const download = await config.client.storage.from(config.bucket).download(`${config.objectsPrefix}/${objectKey}`);
       if (!download.error && download.data) {
-        const localPath = path.join(localBase, entry.name);
         ensureDir(path.dirname(localPath));
         fs.writeFileSync(localPath, Buffer.from(await download.data.arrayBuffer()));
       }
     }
+  } finally {
+    db.close();
   }
-
-  await walk(config.objectsPrefix, config.objectDir);
 }
 
 export async function persistSupabaseState(config: SupabaseStateConfig, dirtyObjectKeys: string[] = []) {
