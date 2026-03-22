@@ -1,7 +1,7 @@
 import { getQueueKeeperCore } from "@queuekeeper/core";
 import { LandingModeHero } from "../components/landing-mode-hero";
 import { TrustLoopIllustration } from "../components/minimalist-graphics";
-import { TaskFeedBoard } from "../components/task-feed-board";
+import { PublicTaskFeed } from "../components/public-task-feed";
 
 const benefitCards = [
   ["Direct buyer decisions", "Stop or continue on your terms."],
@@ -127,7 +127,7 @@ export default async function HomePage() {
           <span className="eyebrow">Public tasks</span>
           <h2 className="section-title">Public tasks, private intent</h2>
         </div>
-        <TaskFeedBoard tasks={tasks} />
+        <PublicTaskFeed initialTasks={tasks} />
       </section>
     </main>
   );

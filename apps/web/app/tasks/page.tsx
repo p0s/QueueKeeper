@@ -1,5 +1,5 @@
 import { getQueueKeeperCore } from "@queuekeeper/core";
-import { TaskFeedBoard } from "../../components/task-feed-board";
+import { PublicTaskFeed } from "../../components/public-task-feed";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export default async function TaskFeedPage() {
           Accept a redacted task, verify first, unlock the destination after acceptance, and get paid as each proof-backed step is completed.
         </p>
       </section>
-      <TaskFeedBoard tasks={tasks} />
+      <PublicTaskFeed initialTasks={tasks} />
     </main>
   );
 }
