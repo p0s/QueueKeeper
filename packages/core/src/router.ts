@@ -340,7 +340,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
   try {
     if (request.method === "GET" && pathname === "/v1/openapi.json") {
-      return json(200, core.openApiDocument(`${url.origin}/v1`));
+      return json(200, core.openApiDocument(`${url.origin}/api/v1`));
     }
 
     if (request.method === "GET" && pathname === "/v1/evidence") {

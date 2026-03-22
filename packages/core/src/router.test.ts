@@ -157,3 +157,23 @@ test("task draft accepts expiresAt and numeric strings", async () => {
   assert.ok(json.buyerToken);
   assert.ok(Number.isFinite(Date.parse(json.job.expiresAt)));
 });
+
+test("openapi advertises the externally reachable /api/v1 server base", async () => {
+  installTestCore("openapi");
+
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.xyz/api/v1/openapi.json", {
+    method: "GET"
+  }), {
+    plan: async () => ({
+      summary: {
+        action: "scout-only",
+        reason: "unused"
+      }
+    }),
+    verify
+  });
+
+  assert.equal(response.status, 200);
+  const json = await response.json() as { servers?: Array<{ url?: string }> };
+  assert.equal(json.servers?.[0]?.url, "https://queuekeeper.xyz/api/v1");
+});
