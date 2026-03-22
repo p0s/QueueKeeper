@@ -1,5 +1,4 @@
-import { headers } from "next/headers";
-import type { QueueJobView } from "@queuekeeper/shared";
+import { getQueueKeeperCore } from "@queuekeeper/core";
 import { LandingModeHero } from "../components/landing-mode-hero";
 import { TrustLoopIllustration } from "../components/minimalist-graphics";
 import { TaskFeedBoard } from "../components/task-feed-board";
@@ -61,23 +60,8 @@ const sponsorRails = [
 
 export const dynamic = "force-dynamic";
 
-async function fetchPublicTasks(): Promise<QueueJobView[]> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("host") ?? "127.0.0.1:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto")
-    ?? (host.startsWith("127.0.0.1") || host.startsWith("localhost") ? "http" : "https");
-  const response = await fetch(`${protocol}://${host}/api/v1/tasks?viewer=public`, {
-    cache: "no-store"
-  });
-  if (!response.ok) {
-    return [];
-  }
-  const json = (await response.json()) as { tasks?: QueueJobView[] };
-  return json.tasks ?? [];
-}
-
 export default async function HomePage() {
-  const tasks = await fetchPublicTasks();
+  const tasks = (await getQueueKeeperCore()).listTasks("public").tasks;
 
   return (
     <main className="container hero-shell">
