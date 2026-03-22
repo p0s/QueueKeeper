@@ -19,7 +19,8 @@ QueueKeeper is a testnet-first private scout-and-hold procurement product: a hum
 - Human Mode and Agent Mode now exist as distinct product entrypoints.
 - The web UX is now task-first and operations-led:
   - homepage starts with a Human/Agent selector, concrete procurement story, and sponsor rail
-  - `/agent` and `/human` use a staged composer with public/private separation, planner rail, and optional sidecars hidden behind disclosure
+  - `/agent` is the human-facing agent console for configuring or testing agent-driven task flows
+  - `/human` uses the same private task model directly
   - `/tasks/[taskId]` acts as a next-action-first command center with grouped stages and collapsed advanced receipts
   - `/runner/[jobId]` is optimized around verify → accept → submit next proof
   - `/evidence` groups sponsor proof into core loop, agent infrastructure, and sidecars
@@ -78,7 +79,8 @@ flowchart LR
 
 The durable API surface is available in the agent app and mirrored locally in the web app:
 
-- Public agent handoff: `/skill.md`
+- Public machine-facing handoff for real agents: `/skill.md`
+- Human-facing agent console: `/agent`
 - Machine-readable contract: `/api/v1/openapi.json`
 - `POST /v1/tasks/drafts` returns `buyerToken`; send it as `Authorization: Bearer <buyerToken>` on buyer-only routes such as `post`, `GET /v1/tasks/:taskId?viewer=buyer`, `agent/decide`, and `agent/log`.
 - Draft creation accepts `expiresInMinutes` or `expiresAt` (ISO-8601).

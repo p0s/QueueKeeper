@@ -178,6 +178,8 @@ Do **not** support in MVP:
 - choose acceptable runner
 - create job-specific spend action(s)
 - release stage payments only when proof conditions pass
+- for actual software agents, the primary public entrypoint is `skill.md`
+- the `/agent` page is a human-facing agent console for configuration, testing, and demoing the same flow visually
 
 ## 10. State machine
 
