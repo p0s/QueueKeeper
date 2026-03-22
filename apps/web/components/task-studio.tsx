@@ -148,11 +148,13 @@ export function TaskStudio({
         <div className="stack" style={{ gap: 12 }}>
           <h1 className="hero-headline hero-headline-tight">
             {principalMode === "AGENT"
-              ? "Create a private task your agent can run inside a hard spend boundary."
+              ? "Agent console"
               : "Create a private task that only pays for proof-backed progress."}
           </h1>
           <p className="hero-copy muted">
-            Pre-fund the task, keep sensitive details private until acceptance, and pay only for each verified step.
+            {principalMode === "AGENT"
+              ? "For humans configuring or testing agent-driven task flows. Real agents should use the public skill entrypoint."
+              : "Pre-fund the task, keep sensitive details private until acceptance, and pay only for each verified step."}
           </p>
           <p className="hero-tertiary">Bound trust to the next verified increment.</p>
         </div>
@@ -162,7 +164,7 @@ export function TaskStudio({
         </div>
         {principalMode === "AGENT" ? (
           <div className="compat-strip">
-            <span className="eyebrow">Agent-compatible control surface</span>
+            <span className="eyebrow">Real agents should use skill.md</span>
             <div className="compat-pills">
               <span className="compat-pill">Headless API</span>
               <span className="compat-pill">agent.json</span>

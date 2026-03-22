@@ -33,10 +33,11 @@ export function LandingModeHero() {
     <section className="landing-hero">
       <div className="card hero-card hero-card-centered fade-in">
         <QueueKeeperLogoMark />
-        <h1 className="hero-title">Trust any human: Private scout-and-hold procurement</h1>
+        <span className="badge-pill">QueueKeeper</span>
+        <h1 className="hero-title">Hire a human to queue at your favorite restaurant.</h1>
 
         <p className="hero-subtitle">
-          Rent-a-human, but no need for escrow, no need to trust, and private - to queue, help, scout and more.
+          Or do any other task for you. No need for escrow, no need to trust, and private!
         </p>
 
         <div className="mode-toggle" role="tablist" aria-label="Principal mode">
@@ -60,14 +61,8 @@ export function LandingModeHero() {
           </button>
         </div>
 
-        <p className="hero-copy muted hero-support-copy">
-          Pre-fund a task, keep sensitive details private until verified acceptance, and pay only for each proof-backed step.
-        </p>
-
         <div className="cta-row">
-          <a className="button" href={isAgent ? "/agent" : "/human"}>
-            {isAgent ? "Use with an agent" : "Rent a human"}
-          </a>
+          {!isAgent ? <a className="button" href="/human">Rent a human</a> : null}
         </div>
 
         {isAgent ? (
@@ -77,7 +72,6 @@ export function LandingModeHero() {
               <div className="action-row">
                 <div className="stack-tight">
                   <span className="eyebrow">Hand off to your agent</span>
-                  <strong>curl -s https://queuekeeper.xyz/skill.md</strong>
                 </div>
                 <a className="button secondary" href="/skill.md" rel="noreferrer" target="_blank">Open skill.md</a>
               </div>
@@ -87,9 +81,11 @@ export function LandingModeHero() {
                   {copied ? "Copied" : "Copy"}
                 </button>
               </div>
+              <a className="micro-link" href="/agent">Use with an agent</a>
             </div>
           </div>
         ) : null}
+
       </div>
     </section>
   );

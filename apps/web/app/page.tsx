@@ -28,27 +28,33 @@ const loopSteps = [
 const sponsorRails = [
   {
     sponsor: "Protocol Labs",
-    label: "ERC-8004 agent identity"
+    label: "ERC-8004 agent identity",
+    detail: "Hand the task to your agent through a public skill entrypoint."
   },
   {
     sponsor: "Venice",
-    label: "Private planner"
+    label: "Private planner",
+    detail: "Plan from hidden details without leaking them."
   },
   {
     sponsor: "Self",
-    label: "Verified acceptance"
+    label: "Verified acceptance",
+    detail: "Only verified runners unlock the destination."
   },
   {
     sponsor: "Celo",
-    label: "Micropayments"
+    label: "Micropayments",
+    detail: "Pay per step instead of trusting a full escrowed promise."
   },
   {
     sponsor: "Uniswap",
-    label: "Budget normalization"
+    label: "Budget normalization",
+    detail: "Top up the payout rail with one swap."
   },
   {
     sponsor: "Base / x402",
-    label: "Paid venue hint"
+    label: "Paid venue hint",
+    detail: "Buy one paid venue hint before you commit."
   }
 ] as const;
 
@@ -61,6 +67,28 @@ export default async function HomePage() {
   return (
     <main className="container hero-shell">
       <LandingModeHero />
+
+      <section className="stack fade-in">
+        <div className="action-row">
+          <div className="stack-tight">
+            <span className="eyebrow">Supported rails</span>
+            <h2 className="section-title">Built with</h2>
+          </div>
+          <div className="cta-row">
+            <a className="button secondary" href="/evidence">Open sponsor evidence</a>
+            <a className="micro-link" href="https://github.com/p0s/QueueKeeper" rel="noreferrer" target="_blank">GitHub repo</a>
+          </div>
+        </div>
+        <div className="sponsor-grid">
+          {sponsorRails.map((item) => (
+            <section key={item.label} className="card sponsor-card">
+              <span className="eyebrow">{item.sponsor}</span>
+              <h3 className="subsection-title">{item.label}</h3>
+              <p className="muted">{item.detail}</p>
+            </section>
+          ))}
+        </div>
+      </section>
 
       <section className="stack fade-in">
         <div>
@@ -90,24 +118,6 @@ export default async function HomePage() {
             <section key={step.step} className="card loop-card">
               <h3 className="subsection-title">{step.step}</h3>
               <p className="muted">{step.detail}</p>
-            </section>
-          ))}
-        </div>
-      </section>
-
-      <section className="stack fade-in">
-        <div className="action-row">
-          <div className="stack-tight">
-            <span className="eyebrow">Supported rails</span>
-            <h2 className="section-title">Built with</h2>
-          </div>
-          <a className="button secondary" href="/evidence">Open sponsor evidence</a>
-        </div>
-        <div className="sponsor-grid">
-          {sponsorRails.map((item) => (
-            <section key={item.label} className="card sponsor-card">
-              <span className="eyebrow">{item.sponsor}</span>
-              <h3 className="subsection-title">{item.label}</h3>
             </section>
           ))}
         </div>
