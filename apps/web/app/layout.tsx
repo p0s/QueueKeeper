@@ -16,7 +16,7 @@ const bodyFont = Manrope({
 
 export const metadata: Metadata = {
   title: "QueueKeeper — Private Scout-and-Hold Procurement",
-  description: "Rent a human with bounded trust: pay only for the next verified increment, never for the whole promise."
+  description: "Privately procure a verified human to scout, hold, or hand off scarce real-world access with proof-backed micropayments."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

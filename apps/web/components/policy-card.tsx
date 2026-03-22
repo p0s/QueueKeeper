@@ -13,8 +13,13 @@ export function PolicyCard({ policy }: { policy: DelegationPolicyView }) {
 
   return (
     <section className="card">
-      <span className="eyebrow">Delegation rail</span>
-      <h3 className="section-title">What your agent can spend</h3>
+      <div className="action-row">
+        <div className="stack-tight">
+          <span className="eyebrow">MetaMask spend boundary</span>
+          <h3 className="section-title">What your agent can spend</h3>
+        </div>
+        <span className={`chip ${statusTone}`}>{statusText}</span>
+      </div>
       <p className="muted section-copy">{statusText}. The buyer remains in control of token, contract, expiry, and job scope.</p>
       <div className="summary-grid">
         <div className="summary-tile">
@@ -32,7 +37,7 @@ export function PolicyCard({ policy }: { policy: DelegationPolicyView }) {
         <div className="summary-tile">
           <span className="eyebrow">Status</span>
           <strong>{statusText}</strong>
-          <span className={`chip ${statusTone}`}>{policy.status}</span>
+          <span className="muted">{policy.status}</span>
         </div>
       </div>
       <details className="detail-disclosure">

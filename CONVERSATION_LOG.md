@@ -97,3 +97,10 @@
 - Agent aligned the live deployment with the new task-first product shell and verified the hosted `/api/v1/tasks` surface plus root agent artifacts.
 - Agent also kept the earlier privacy hardening intact while introducing the new Agent Mode, Human Mode, and command-center pages.
 - Result: the hosted app now reflects the updated submission story and public task API.
+
+## 2026-03-22 02:40–03:00 UTC
+- Human asked for a final UI pass that made the product easier to understand for judges while keeping sponsor features visible and honest.
+- Agent rewrote the landing page, task composer, command center, runner flow, evidence page, and shared visual system around a more concrete procurement story and stronger next-action hierarchy.
+- Agent also moved protocol-heavy detail behind disclosures, grouped sponsor proof more clearly, and refreshed the live demo script to match the new UI narrative.
+- Agent validated the updated surfaces with `pnpm typecheck`, `pnpm lint`, `pnpm build`, core tests, contract tests, and local route smokes.
+- Result: QueueKeeper now reads more clearly as a polished private procurement product rather than a technical hackathon dashboard.

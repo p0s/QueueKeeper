@@ -14,9 +14,13 @@ export function VerificationCard({ verification }: { verification: RunnerVerific
 
   return (
     <section className="card">
-      <span className="eyebrow">Verification</span>
-      <h3 className="section-title">Runner identity state</h3>
-      <div className={`chip ${verification.status === "verified" ? "success" : verification.status === "blocked" ? "danger" : "warning"}`}>{label}</div>
+      <div className="action-row">
+        <div className="stack-tight">
+          <span className="eyebrow">Self acceptance gate</span>
+          <h3 className="section-title">Runner identity state</h3>
+        </div>
+        <div className={`chip ${verification.status === "verified" ? "success" : verification.status === "blocked" ? "danger" : "warning"}`}>{label}</div>
+      </div>
       <p className="muted" style={{ marginTop: 10 }}>
         {copy}
       </p>

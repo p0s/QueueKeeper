@@ -19,18 +19,20 @@ export function AgentIdentityCard({
       <span className="eyebrow">Synthesis agent</span>
       <h3 className="section-title">{identity.name}</h3>
       <p className="muted">{identity.role}</p>
-      <div className="summary-grid" style={{ marginTop: 14 }}>
+      <div className={`summary-grid ${compact ? "compact-grid" : ""}`} style={{ marginTop: 14 }}>
         <div className="summary-tile">
           <span className="eyebrow">Mode</span>
           <strong>{identity.mode}</strong>
         </div>
+        {!compact ? (
+          <div className="summary-tile">
+            <span className="eyebrow">Harness</span>
+            <strong>{identity.harness}</strong>
+          </div>
+        ) : null}
         <div className="summary-tile">
-          <span className="eyebrow">Harness</span>
-          <strong>{identity.harness}</strong>
-        </div>
-        <div className="summary-tile">
-          <span className="eyebrow">Model</span>
-          <strong>{identity.model}</strong>
+          <span className="eyebrow">{compact ? "Capability" : "Model"}</span>
+          <strong>{compact ? "Private planner + execution loop" : identity.model}</strong>
         </div>
         <div className="summary-tile">
           <span className="eyebrow">Identity</span>

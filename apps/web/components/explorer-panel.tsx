@@ -10,8 +10,13 @@ export function ExplorerPanel({ links }: { links: ExplorerLinkView[] }) {
 
   return (
     <section className="card">
-      <span className="eyebrow">Explorer</span>
-      <h3 className="section-title">Chain receipts</h3>
+      <div className="action-row">
+        <div className="stack-tight">
+          <span className="eyebrow">Celo receipts</span>
+          <h3 className="section-title">Chain receipts</h3>
+        </div>
+        <span className="chip info">{txLinks.length > 0 ? `${txLinks.length} live tx` : "Contracts only"}</span>
+      </div>
       <p className="muted section-copy" style={{ marginBottom: 12 }}>
         Contract links stay available in the background. Live transaction receipts only appear here when a wallet-backed write succeeds.
       </p>

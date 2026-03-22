@@ -29,6 +29,67 @@ const SelfQrPanel = dynamic(
   { ssr: false }
 );
 
+type NextRunnerAction =
+  | "start-verification"
+  | "finish-verification"
+  | "accept-task"
+  | "submit-proof"
+  | "wait";
+
+function resolveRunnerAction(
+  job: QueueJobView,
+  liveSelfMode: boolean,
+  selfSession: SelfVerificationSessionView | null,
+  nextProofStage: QueueJobView["stages"][number] | undefined
+): {
+  kind: NextRunnerAction;
+  label: string;
+  body: string;
+} {
+  if (!job.acceptedRunnerAddress) {
+    if (!liveSelfMode) {
+      return {
+        kind: "accept-task",
+        label: "Accept task",
+        body: "Verification is mocked in this mode, so acceptance can proceed immediately."
+      };
+    }
+    if (!selfSession) {
+      return {
+        kind: "start-verification",
+        label: "Start verification",
+        body: "Verification must succeed before the exact destination and private instructions unlock."
+      };
+    }
+    if (selfSession.status !== "verified") {
+      return {
+        kind: "finish-verification",
+        label: "Finish Self verification",
+        body: "Complete the QR or deeplink flow in Self, then come back to accept the task."
+      };
+    }
+    return {
+      kind: "accept-task",
+      label: "Accept task",
+      body: "Verification has cleared, so the task can now unlock reveal access."
+    };
+  }
+
+  if (nextProofStage) {
+    return {
+      kind: "submit-proof",
+      label: `Submit ${nextProofStage.label}`,
+      body: "Only the next proof-backed increment is payable, so submit the next proof from the line."
+    };
+  }
+
+  return {
+    kind: "wait",
+    label: "No runner action pending",
+    body: "All currently configured runner actions are complete or waiting on the principal."
+  };
+}
+
 export function RunnerJobDemo({
   initialJob,
   jobId,
@@ -44,7 +105,7 @@ export function RunnerJobDemo({
   const [runnerAddress, setRunnerAddress] = useState(initialJob.acceptedRunnerAddress ?? initialJob.selectedRunnerAddress ?? "0xa11ce0000000000000000000000000000000001");
   const [verificationReference, setVerificationReference] = useState(`self-${jobId}`);
   const [selfSession, setSelfSession] = useState<SelfVerificationSessionView | null>(null);
-  const [acceptState, setAcceptState] = useState<string>("Not accepted yet");
+  const [acceptState, setAcceptState] = useState("Not accepted yet");
   const [revealToken, setRevealToken] = useState<string | undefined>(initialRevealToken);
   const [sendLiveTx, setSendLiveTx] = useState(false);
   const [onchainJobId, setOnchainJobId] = useState<string | null>(null);
@@ -55,27 +116,7 @@ export function RunnerJobDemo({
   const [selectedBundle, setSelectedBundle] = useState<Awaited<ReturnType<typeof fetchProofBundle>> | null>(null);
   const runnerIdentity = useEnsIdentity(runnerAddress);
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
-  const stickyAction = !job.acceptedRunnerAddress
-    ? handleAccept
-    : nextProofStage
-      ? () => handleProofSubmit(nextProofStage.stageId ?? nextProofStage.key, nextProofStage.key, nextProofStage.sequence)
-      : undefined;
-  const nextActionCopy = !job.acceptedRunnerAddress
-    ? "Verification must succeed before QueueKeeper reveals the exact destination."
-    : nextProofStage
-      ? "Submit the next proof bundle from the line to keep payout moving."
-      : "No runner action is pending right now.";
-  const nextActionLabel = !job.acceptedRunnerAddress
-    ? liveSelfMode
-      ? selfSession?.status === "verified"
-        ? "Accept task"
-        : selfSession
-          ? "Finish Self verification"
-          : "Start verification"
-      : "Accept task"
-    : nextProofStage
-      ? `Submit ${nextProofStage.label}`
-      : "Task complete";
+  const nextAction = resolveRunnerAction(job, liveSelfMode, selfSession, nextProofStage);
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
@@ -127,6 +168,17 @@ export function RunnerJobDemo({
     return btoa(binary);
   }
 
+  async function startVerification() {
+    const resolvedRunner = await resolveAddressOrEns(runnerAddress);
+    if (!resolvedRunner.address) {
+      setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
+      return;
+    }
+    const session = await createSelfVerificationSession(jobId, resolvedRunner.address);
+    setSelfSession(session);
+    setAcceptState(`Self verification session created · ${session.sessionId}`);
+  }
+
   async function handleAccept() {
     setAcceptState("Checking verification gate…");
     const resolvedRunner = await resolveAddressOrEns(runnerAddress);
@@ -143,7 +195,7 @@ export function RunnerJobDemo({
         rememberTxHash(jobId, "acceptJob", txHash);
         setCachedTxHashes((current) => ({ ...current, acceptJob: txHash as string }));
       } catch (error) {
-        setAcceptState(`Live accept failed, continuing with the demo fallback: ${error instanceof Error ? error.message : String(error)}`);
+        setAcceptState(`Live accept failed, continuing with the hosted path: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -178,7 +230,7 @@ export function RunnerJobDemo({
         rememberTxHash(jobId, `proof:${stageId}`, txHash);
         setCachedTxHashes((current) => ({ ...current, [`proof:${stageId}`]: txHash as string }));
       } catch (error) {
-        setAcceptState(`Live ${stageKey} proof failed, continuing with the demo fallback: ${error instanceof Error ? error.message : String(error)}`);
+        setAcceptState(`Live ${stageKey} proof failed, continuing with the hosted path: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -238,209 +290,227 @@ export function RunnerJobDemo({
             </div>
             <div className="summary-tile">
               <span className="eyebrow">Next action</span>
-              <strong>{nextActionLabel}</strong>
+              <strong>{nextAction.label}</strong>
             </div>
           </div>
         </section>
 
         <VerificationCard verification={job.runnerVerification} />
+        {liveSelfMode && selfSession ? (
+          <div className="card">
+            <span className="eyebrow">Finish verification</span>
+            <SelfQrPanel
+              onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}
+              onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken))}
+              session={selfSession}
+            />
+          </div>
+        ) : null}
 
-        <section className="card next-action-card">
-          <span className="eyebrow">Exact destination reveal</span>
-          <h2 className="section-title">Only unlocked after verified acceptance</h2>
+        <section className={`card ${job.exactLocationVisibleToViewer ? "reveal-card unlocked" : "reveal-card locked"}`}>
+          <div className="action-row">
+            <div className="stack-tight">
+              <span className="eyebrow">Privacy boundary</span>
+              <h2 className="section-title">What unlocks after verification</h2>
+            </div>
+            <span className={`chip ${job.exactLocationVisibleToViewer ? "success" : "info"}`}>
+              {job.exactLocationVisibleToViewer ? "Unlocked" : "Still locked"}
+            </span>
+          </div>
           <p className="muted">
             {job.exactLocationVisibleToViewer
-              ? `Unlocked: ${job.exactLocationVisibleToViewer}`
-              : job.exactLocationHint ?? "Hidden until verified acceptance."}
+              ? job.exactLocationVisibleToViewer
+              : "Exact destination, buyer notes, and handoff instructions unlock only after verified acceptance."}
           </p>
         </section>
 
-        <section className="card next-action-card">
-          <span className="eyebrow">Next required action</span>
-          <h2 className="section-title">{nextActionLabel}</h2>
-          <p className="muted">{nextActionCopy}</p>
-          <label className="field">
-            <span>Runner address or ENS</span>
-            <input className="input" value={runnerAddress} onChange={(event) => setRunnerAddress(event.target.value)} />
-            <span className="muted">
-              {runnerIdentity.ensName
-                ? `Resolved ENS: ${runnerIdentity.ensName}`
-                : runnerIdentity.address
-                  ? `Resolved address: ${runnerIdentity.address}`
-                  : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
-            </span>
-          </label>
-          <label className="field">
-            <span>Verification reference</span>
-            <input className="input" value={verificationReference} onChange={(event) => setVerificationReference(event.target.value)} />
-          </label>
-          {liveSelfMode ? (
+        <section className="card next-action-card dominant-card">
+          <div className="action-row">
+            <div className="stack-tight">
+              <span className="eyebrow">Next required action</span>
+              <h2 className="section-title">{nextAction.label}</h2>
+            </div>
+            <span className="chip info">{liveSelfMode ? "Self + proof flow" : "Hosted demo flow"}</span>
+          </div>
+          <p className="muted">{nextAction.body}</p>
+          {nextAction.kind === "start-verification" ? (
+            <button className="button" onClick={startVerification} type="button">Start verification</button>
+          ) : null}
+          {nextAction.kind === "accept-task" ? (
+            <button className="button" onClick={handleAccept} type="button">Accept task</button>
+          ) : null}
+          {nextAction.kind === "submit-proof" && nextProofStage ? (
             <div className="stack" style={{ gap: 14 }}>
+              <div className="summary-tile">
+                <span className="eyebrow">Next paid increment</span>
+                <strong>{nextProofStage.label} · {nextProofStage.amount}</strong>
+              </div>
+              <label className="field">
+                <span>Proof note</span>
+                <textarea
+                  className="textarea"
+                  value={proofNotes[nextProofStage.stageId ?? nextProofStage.key] ?? ""}
+                  onChange={(event) => setProofNotes((current) => ({ ...current, [nextProofStage.stageId ?? nextProofStage.key]: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Image proofs</span>
+                <input
+                  className="input"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => setProofFiles((current) => ({ ...current, [nextProofStage.stageId ?? nextProofStage.key]: Array.from(event.target.files ?? []) }))}
+                  type="file"
+                />
+              </label>
+              {proofFiles[nextProofStage.stageId ?? nextProofStage.key]?.length ? (
+                <FilePreviewGrid files={proofFiles[nextProofStage.stageId ?? nextProofStage.key] ?? []} />
+              ) : null}
               <button
                 className="button"
-                onClick={async () => {
-                  const resolvedRunner = await resolveAddressOrEns(runnerAddress);
-                  if (!resolvedRunner.address) {
-                    setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
-                    return;
-                  }
-                  const session = await createSelfVerificationSession(jobId, resolvedRunner.address);
-                  setSelfSession(session);
-                  setAcceptState(`Self verification session created · ${session.sessionId}`);
-                }}
+                onClick={() => handleProofSubmit(nextProofStage.stageId ?? nextProofStage.key, nextProofStage.key, nextProofStage.sequence)}
                 type="button"
               >
-                    Start verification
-                  </button>
-              {selfSession ? (
-                <SelfQrPanel
-                  onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}
-                  onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken))}
-                  session={selfSession}
-                />
-              ) : null}
+                Submit {nextProofStage.label}
+              </button>
             </div>
           ) : null}
-          <label className="checkbox-row">
-            <input checked={sendLiveTx} onChange={(event) => setSendLiveTx(event.target.checked)} type="checkbox" />
-            <span>Also try the live escrow contract if an onchain job id is cached in this browser.</span>
-          </label>
-          <div className="status-banner">{acceptState}</div>
+          <div className="status-banner" style={{ marginTop: 14 }}>{acceptState}</div>
         </section>
 
         <section className="card">
-          <span className="eyebrow">Proof composer</span>
-          <h2 className="section-title">Send proof bundles from the line</h2>
-          <div className="grid">
-            {job.stages.map((stage) => (
-              <div key={stage.stageId ?? `${stage.key}-${stage.sequence}`} className="timeline-item">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div className="stack" style={{ gap: 4 }}>
-                    <strong>{stage.label}</strong>
-                    <span className="muted">{stage.amount}</span>
-                  </div>
-                  <span className={`chip ${stage.status === "disputed" ? "danger" : stage.released ? "success" : stage.status === "pending-proof" ? "info" : "warning"}`}>
-                    {stage.status}
-                  </span>
-                </div>
-                <div className="grid" style={{ marginTop: 12 }}>
-                  <label className="field">
-                    <span>Proof hash</span>
-                    <input
-                      className="input"
-                      value={proofInputs[stage.stageId ?? stage.key] ?? ""}
-                      onChange={(event) => setProofInputs((current) => ({ ...current, [stage.stageId ?? stage.key]: event.target.value }))}
-                      placeholder={`0x ${stage.key} proof hash`}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Proof note</span>
-                    <textarea
-                      className="textarea"
-                      value={proofNotes[stage.stageId ?? stage.key] ?? ""}
-                      onChange={(event) => setProofNotes((current) => ({ ...current, [stage.stageId ?? stage.key]: event.target.value }))}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Image proofs</span>
-                    <input
-                      className="input"
-                      accept="image/*"
-                      multiple
-                      onChange={(event) => setProofFiles((current) => ({ ...current, [stage.stageId ?? stage.key]: Array.from(event.target.files ?? []) }))}
-                      type="file"
-                    />
-                  </label>
-                  {proofFiles[stage.stageId ?? stage.key]?.length ? (
-                    <FilePreviewGrid files={proofFiles[stage.stageId ?? stage.key] ?? []} />
-                  ) : null}
-                  <button
-                    className="button"
-                    disabled={!job.acceptedRunnerAddress || stage.status !== "pending-proof"}
-                    onClick={() => handleProofSubmit(stage.stageId ?? stage.key, stage.key, stage.sequence)}
-                    type="button"
-                  >
-                    Submit {stage.label}
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="action-row">
+            <div className="stack-tight">
+              <span className="eyebrow">Celo micropayment rail</span>
+              <h2 className="section-title">Payout progress</h2>
+            </div>
+            <span className="chip success">Receipts stay visible</span>
           </div>
-        </section>
-
-        <section className="card">
-          <span className="eyebrow">Payout and receipt</span>
-          <h2 className="section-title">What has been released</h2>
           <div className="summary-grid">
             <div className="summary-tile">
               <span className="eyebrow">Released</span>
               <strong>{job.payoutSummary}</strong>
             </div>
             <div className="summary-tile">
-              <span className="eyebrow">Live chain cache</span>
+              <span className="eyebrow">Cached onchain job</span>
               <strong>{onchainJobId ?? "none"}</strong>
             </div>
           </div>
         </section>
 
-        {(job.stages.some((stage) => stage.proofBundleAvailable) || selectedBundle) ? (
-          <section className="card">
-            <span className="eyebrow">Proof history</span>
-            <h2 className="section-title">Open previously submitted bundles</h2>
-            <div className="grid">
-              {job.stages.filter((stage) => stage.proofBundleAvailable && stage.stageId).map((stage) => (
-                <button
-                  key={stage.stageId}
-                  className="button secondary"
-                  onClick={async () => revealToken && stage.stageId && setSelectedBundle(await fetchProofBundle(jobId, stage.stageId, revealToken))}
-                  type="button"
-                >
-                  Open {stage.label}
-                </button>
-              ))}
-              {selectedBundle ? (
-                <div className="card alt">
-                  <strong>{selectedBundle.stageKey} bundle</strong>
-                  <div className="summary-grid" style={{ marginTop: 12 }}>
-                    <div className="summary-tile">
-                      <span className="eyebrow">Created</span>
-                      <strong>{selectedBundle.createdAt}</strong>
-                    </div>
-                    <div className="summary-tile">
-                      <span className="eyebrow">Proof hash</span>
-                      <strong className="mono-value">{selectedBundle.proofHash}</strong>
-                    </div>
-                  </div>
-                  <div className="muted" style={{ marginTop: 8 }}>{selectedBundle.note ?? "No note provided."}</div>
-                  <div style={{ marginTop: 12 }}>
-                    <ProofMediaGallery media={selectedBundle.media} title="Runner proof history" />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        <PolicyCard policy={job.policy} />
-
         <details className="detail-disclosure">
-          <summary>What remains private</summary>
-          <ul className="muted" style={{ marginTop: 12, paddingLeft: 18 }}>
-            {job.keptPrivate.map((item) => <li key={item}>{item}</li>)}
-          </ul>
-        </details>
+          <summary>Advanced details</summary>
+          <div className="stack" style={{ gap: 16, marginTop: 14 }}>
+            <section className="card alt">
+              <span className="eyebrow">Runner identity input</span>
+              <div className="field-grid" style={{ marginTop: 12 }}>
+                <label className="field">
+                  <span>Runner address or ENS</span>
+                  <input className="input" value={runnerAddress} onChange={(event) => setRunnerAddress(event.target.value)} />
+                  <span className="muted">
+                    {runnerIdentity.ensName
+                      ? `Resolved ENS: ${runnerIdentity.ensName}`
+                      : runnerIdentity.address
+                        ? `Resolved address: ${runnerIdentity.address}`
+                        : runnerIdentity.error ?? "Enter a 0x address or .eth name."}
+                  </span>
+                </label>
+                <label className="field">
+                  <span>Verification reference</span>
+                  <input className="input" value={verificationReference} onChange={(event) => setVerificationReference(event.target.value)} />
+                </label>
+              </div>
+              <label className="checkbox-row" style={{ marginTop: 12 }}>
+                <input checked={sendLiveTx} onChange={(event) => setSendLiveTx(event.target.checked)} type="checkbox" />
+                <span>Also try the live escrow contract if an onchain job id is cached in this browser.</span>
+              </label>
+            </section>
 
-        <JobTimeline job={job} />
-        <ExplorerPanel links={explorerLinks} />
+            <details className="detail-disclosure">
+              <summary>All stage status</summary>
+              <div className="grid" style={{ marginTop: 14 }}>
+                {job.stages.map((stage) => (
+                  <div key={stage.stageId ?? `${stage.key}-${stage.sequence}`} className="timeline-item">
+                    <div className="action-row">
+                      <div className="stack-tight">
+                        <strong>{stage.label}</strong>
+                        <span className="muted">{stage.amount}</span>
+                      </div>
+                      <span className={`chip ${stage.status === "disputed" ? "danger" : stage.released ? "success" : stage.status === "pending-proof" ? "info" : "warning"}`}>
+                        {stage.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            {(job.stages.some((stage) => stage.proofBundleAvailable) || selectedBundle) ? (
+              <section className="card alt">
+                <span className="eyebrow">Proof history</span>
+                <h3 className="section-title">Open previously submitted bundles</h3>
+                <div className="grid" style={{ marginTop: 12 }}>
+                  {job.stages.filter((stage) => stage.proofBundleAvailable && stage.stageId).map((stage) => (
+                    <button
+                      key={stage.stageId}
+                      className="button secondary"
+                      onClick={async () => revealToken && stage.stageId && setSelectedBundle(await fetchProofBundle(jobId, stage.stageId, revealToken))}
+                      type="button"
+                    >
+                      Open {stage.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedBundle ? (
+                  <div style={{ marginTop: 14 }}>
+                    <div className="summary-grid">
+                      <div className="summary-tile">
+                        <span className="eyebrow">Created</span>
+                        <strong>{selectedBundle.createdAt}</strong>
+                      </div>
+                      <div className="summary-tile">
+                        <span className="eyebrow">Proof hash</span>
+                        <strong className="mono-value">{selectedBundle.proofHash}</strong>
+                      </div>
+                    </div>
+                    <div className="muted" style={{ marginTop: 10 }}>{selectedBundle.note ?? "No note provided."}</div>
+                    <div style={{ marginTop: 12 }}>
+                      <ProofMediaGallery media={selectedBundle.media} title="Runner proof history" />
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            <details className="detail-disclosure">
+              <summary>What remains private</summary>
+              <ul className="muted" style={{ marginTop: 12, paddingLeft: 18 }}>
+                {job.keptPrivate.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </details>
+
+            <PolicyCard policy={job.policy} />
+            <JobTimeline job={job} />
+            <ExplorerPanel links={explorerLinks} />
+          </div>
+        </details>
 
         <div className="sticky-footer">
           <button
             className="button"
-            disabled={!job.acceptedRunnerAddress && liveSelfMode && selfSession?.status !== "verified"}
-            onClick={stickyAction}
+            disabled={nextAction.kind === "finish-verification" || nextAction.kind === "wait"}
+            onClick={() => {
+              if (nextAction.kind === "start-verification") {
+                void startVerification();
+              } else if (nextAction.kind === "accept-task") {
+                void handleAccept();
+              } else if (nextAction.kind === "submit-proof" && nextProofStage) {
+                void handleProofSubmit(nextProofStage.stageId ?? nextProofStage.key, nextProofStage.key, nextProofStage.sequence);
+              }
+            }}
             type="button"
           >
-            {nextActionLabel}
+            {nextAction.label}
           </button>
         </div>
       </div>
