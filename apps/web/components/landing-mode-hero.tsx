@@ -48,7 +48,11 @@ export function LandingModeHero({
   return (
     <section className="hero-grid landing-hero">
       <div className="card hero-card fade-in">
-        <span className="badge-pill">Private scout-and-hold procurement</span>
+        <span className="badge-pill">Trust any human: Private scout-and-hold procurement</span>
+
+        <p className="hero-copy muted" style={{ margin: "4px 0 0", maxWidth: "38rem" }}>
+          Privately procure a verified human to scout, hold, or hand off scarce real-world access.
+        </p>
 
         <div className="mode-toggle" role="tablist" aria-label="Principal mode">
           <button
@@ -74,13 +78,13 @@ export function LandingModeHero({
         <div className="stack" style={{ gap: 14 }}>
           <h1 className="hero-headline hero-headline-tight">
             {isAgent
-              ? "Have an agent privately procure a verified human to scout, hold, or hand off scarce real-world access."
-              : "Privately procure a verified human to scout, hold, or hand off scarce real-world access."}
+              ? "Let an agent draft, decide, and escalate inside a hard spend boundary."
+              : "Run the same bounded-trust task flow yourself."}
           </h1>
           <p className="hero-copy muted">
             {isAgent
-              ? "Let the agent draft, decide, and escalate inside a hard spend boundary while the principal only pays for each proof-backed step."
-              : "Pre-fund a task, reveal the destination only after verified acceptance, and pay only for each proof-backed step."}
+              ? "The agent can plan privately, buy optional sidecar signals, and still keep the principal inside explicit spend and reveal boundaries."
+              : "Pre-fund a task, keep sensitive details private until verified acceptance, and pay only for each proof-backed step."}
           </p>
           <p className="hero-tertiary">Bound trust to the next verified increment.</p>
         </div>
