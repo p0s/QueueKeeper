@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { ThemeToggle } from "../components/theme-toggle";
 
 const headingFont = Space_Grotesk({
   subsets: ["latin"],
@@ -21,8 +23,24 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html className={`${headingFont.variable} ${bodyFont.variable}`} lang="en">
-      <body>{children}</body>
+    <html className={`${headingFont.variable} ${bodyFont.variable}`} lang="en" suppressHydrationWarning>
+      <body>
+        <Script id="queuekeeper-theme-init" strategy="beforeInteractive">
+          {`
+            try {
+              const stored = window.localStorage.getItem('queuekeeper-theme');
+              const theme = stored === 'dark' ? 'dark' : 'light';
+              document.documentElement.dataset.theme = theme;
+              document.documentElement.style.colorScheme = theme;
+            } catch (error) {
+              document.documentElement.dataset.theme = 'light';
+              document.documentElement.style.colorScheme = 'light';
+            }
+          `}
+        </Script>
+        <ThemeToggle />
+        {children}
+      </body>
     </html>
   );
 }
