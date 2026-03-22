@@ -250,6 +250,7 @@ export interface AcceptJobResponse {
   accepted: true;
   jobId: string;
   runnerAddress: string;
+  message?: string;
   job: QueueJobView;
   acceptanceRecord: {
     verificationReference: string;
@@ -290,6 +291,7 @@ export interface CreateJobDraftRequest extends BuyerJobFormInput {
 export interface CreateJobDraftResponse {
   job: QueueJobView;
   buyerToken: string;
+  message?: string;
 }
 
 export interface PostJobRequest {
@@ -388,6 +390,7 @@ export interface SettleDisputeRequest {
 export interface QueueJobTimelineResponse {
   job: QueueJobView;
   events: QueueTimelineEventView[];
+  message?: string;
 }
 
 export type TaskTimelineResponse = QueueJobTimelineResponse;
@@ -432,6 +435,7 @@ export interface AgentDecisionResponse {
     provider?: string;
   };
   log: AgentDecisionLogView[];
+  message?: string;
 }
 
 export interface AgentLogResponse {

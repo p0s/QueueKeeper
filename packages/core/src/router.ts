@@ -57,6 +57,13 @@ function json(status: number, body: unknown) {
   });
 }
 
+function withMessage<T extends Record<string, unknown>>(body: T, message: string): T & { message: string } {
+  return {
+    ...body,
+    message
+  };
+}
+
 async function readOptionalJsonBody(request: Request) {
   const raw = await request.text();
   if (!raw.trim()) return {} as Record<string, unknown>;
@@ -404,10 +411,11 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
       const planner = parsed.payload.plannerPreview
         ? undefined
-        : parsed.plannerInput
-          ? await deps.plan(parsed.plannerInput)
-          : undefined;
-      return json(200, core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey));
+          : parsed.plannerInput
+            ? await deps.plan(parsed.plannerInput)
+            : undefined;
+      const response = core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey);
+      return json(200, withMessage(response, "Task draft created successfully."));
     }
 
     if (segments[0] === "v1" && segments[1] === "self" && segments[2] === "sessions" && request.method === "POST" && segments.length === 3) {
@@ -465,7 +473,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           delegation: payload.delegation as never
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Task posted successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "dispatch") {
@@ -475,14 +483,14 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           runnerAddress: payload.runnerAddress
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Task dispatched successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "delegation") {
         const payload = (await request.json()) as Record<string, unknown>;
         const response = core.updateDelegation(jobId, payload as never, bearer ?? "");
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Delegation policy updated successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "accept") {
@@ -526,7 +534,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         }
         const response = core.acceptTask(jobId, payload.runnerAddress, verification, payload.txHash);
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Task accepted successfully and reveal access unlocked."));
       }
 
       if (request.method === "GET" && segments[3] === "reveal") {
@@ -545,7 +553,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
         const payload = await request.json();
         const response = core.submitTaskProof(jobId, bearer ?? "", payload as never);
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Proof submitted successfully."));
       }
 
       if (request.method === "GET" && segments[3] === "proofs" && segments[4]) {
@@ -563,7 +571,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           stageId: segments[4]
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Stage approved successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "stages" && segments[4] && segments[5] === "dispute") {
@@ -582,7 +590,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           reason: payload.reason
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Stage disputed successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "stop") {
@@ -592,7 +600,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           note: payload.note
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Task stopped successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "funding" && segments[4] === "normalized") {
@@ -602,7 +610,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           buyerToken: bearer ?? ""
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Funding normalization recorded successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "agent" && segments[4] === "decide") {
@@ -617,7 +625,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           plannerAction: planner.summary.action
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Agent decision recorded successfully."));
       }
 
       if (request.method === "GET" && segments[3] === "agent" && segments[4] === "log") {
@@ -631,7 +639,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           buyerToken: bearer ?? ""
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Paid tool purchase recorded successfully."));
       }
 
       if (request.method === "POST" && segments[3] === "dispute" && segments[4] === "settle") {
@@ -652,7 +660,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
           arbiterToken: (payload.arbiterToken as string | undefined) ?? bearer
         });
         await persistQueueKeeperCore(core);
-        return json(200, response);
+        return json(200, withMessage(response, "Dispute settled successfully."));
       }
     }
 

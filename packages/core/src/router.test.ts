@@ -190,10 +190,11 @@ test("task draft accepts expiresAt and numeric strings", async () => {
   });
 
   assert.equal(response.status, 200);
-  const json = await response.json() as { buyerToken: string; job: { title: string; expiresAt: string } };
+  const json = await response.json() as { buyerToken: string; job: { title: string; expiresAt: string }; message: string };
   assert.equal(json.job.title, "Agent-created task");
   assert.ok(json.buyerToken);
   assert.ok(Number.isFinite(Date.parse(json.job.expiresAt)));
+  assert.equal(json.message, "Task draft created successfully.");
 });
 
 test("task draft applies the low default payout ladder when omitted", async () => {
@@ -332,8 +333,108 @@ test("post task accepts a completely empty body", async () => {
   });
 
   assert.equal(postResponse.status, 200);
-  const posted = await postResponse.json() as { job: { status: string } };
+  const posted = await postResponse.json() as { job: { status: string }; message: string };
   assert.equal(posted.job.status, "posted");
+  assert.equal(posted.message, "Task posted successfully.");
+});
+
+test("accept and proof submission return explicit success messages", async () => {
+  installTestCore("accept-proof-messages");
+
+  const draftResponse = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      mode: "VERIFIED_POOL",
+      principalMode: "AGENT",
+      title: "Acceptance messaging",
+      coarseArea: "Seattle / Pike St",
+      exactLocation: "Starbucks, 1124 Pike St, Seattle, WA 98101",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during draft creation.");
+    },
+    verify
+  });
+
+  const draft = await draftResponse.json() as { buyerToken: string; job: { id: string } };
+
+  const postResponse = await handleQueueKeeperApi(new Request(`https://queuekeeper.test/api/v1/tasks/${draft.job.id}/post`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${draft.buyerToken}`
+    }
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during post.");
+    },
+    verify
+  });
+  assert.equal(postResponse.status, 200);
+
+  const acceptResponse = await handleQueueKeeperApi(new Request(`https://queuekeeper.test/api/v1/tasks/${draft.job.id}/accept`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      runnerAddress: "0xa11ce0000000000000000000000000000000001",
+      verificationPayload: {
+        reference: "success-message-test"
+      }
+    })
+  }), {
+    plan: async () => ({
+      summary: {
+        action: "scout-only",
+        reason: "unused"
+      }
+    }),
+    verify
+  });
+
+  assert.equal(acceptResponse.status, 200);
+  const accepted = await acceptResponse.json() as {
+    message: string;
+    acceptanceRecord: { revealToken: string };
+  };
+  assert.equal(accepted.message, "Task accepted successfully and reveal access unlocked.");
+
+  const proofResponse = await handleQueueKeeperApi(new Request(`https://queuekeeper.test/api/v1/tasks/${draft.job.id}/proofs`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${accepted.acceptanceRecord.revealToken}`
+    },
+    body: JSON.stringify({
+      stageKey: "scout",
+      proofHash: "0xproofhash",
+      note: "Scout complete."
+    })
+  }), {
+    plan: async () => ({
+      summary: {
+        action: "scout-only",
+        reason: "unused"
+      }
+    }),
+    verify
+  });
+
+  assert.equal(proofResponse.status, 200);
+  const proof = await proofResponse.json() as {
+    message: string;
+    job: {
+      stages: Array<{ key: string; proofHash: string }>;
+    };
+  };
+  assert.equal(proof.message, "Proof submitted successfully.");
+  assert.equal(proof.job.stages.find((stage) => stage.key === "scout")?.proofHash, "0xproofhash");
 });
 
 test("openapi advertises the externally reachable /api/v1 server base", async () => {

@@ -1503,6 +1503,7 @@ export class QueueKeeperCore {
             required: ["job", "buyerToken"],
             properties: {
               buyerToken: { type: "string" },
+              message: { type: "string" },
               job: {
                 type: "object",
                 additionalProperties: true,
@@ -1513,6 +1514,7 @@ export class QueueKeeperCore {
           TaskResponse: {
             type: "object",
             properties: {
+              message: { type: "string" },
               job: {
                 type: "object",
                 additionalProperties: true
@@ -1521,6 +1523,9 @@ export class QueueKeeperCore {
           },
           AgentDecisionResponse: {
             type: "object",
+            properties: {
+              message: { type: "string" }
+            },
             additionalProperties: true
           },
           AgentLogResponse: {
