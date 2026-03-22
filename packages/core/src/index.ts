@@ -2396,6 +2396,20 @@ export class QueueKeeperCore {
 const coreRemoteSync = new WeakMap<QueueKeeperCore, SupabaseStateConfig>();
 
 export async function getQueueKeeperCore() {
+  const supabase = getSupabaseStateConfig();
+  if (supabase) {
+    await hydrateSupabaseState(supabase);
+    const core = new QueueKeeperCore({
+      dataDir: supabase.runtimeDir,
+      databasePath: supabase.dbPath,
+      objectDir: supabase.objectDir,
+      encryptionKey: getEncryptionKey(supabase.runtimeDir, true)
+    });
+    coreRemoteSync.set(core, supabase);
+    await persistSupabaseState(supabase);
+    return core;
+  }
+
   if (global.__queuekeeperCoreSingleton) {
     return global.__queuekeeperCoreSingleton;
   }
@@ -2404,21 +2418,6 @@ export async function getQueueKeeperCore() {
   }
 
   global.__queuekeeperCoreSingletonPromise = (async () => {
-    const supabase = getSupabaseStateConfig();
-    if (supabase) {
-      await hydrateSupabaseState(supabase);
-      const core = new QueueKeeperCore({
-        dataDir: supabase.runtimeDir,
-        databasePath: supabase.dbPath,
-        objectDir: supabase.objectDir,
-        encryptionKey: getEncryptionKey(supabase.runtimeDir, true)
-      });
-      coreRemoteSync.set(core, supabase);
-      await persistSupabaseState(supabase);
-      global.__queuekeeperCoreSingleton = core;
-      return core;
-    }
-
     const localDataDir = process.env.QUEUEKEEPER_DATA_DIR ?? path.join(process.cwd(), ".queuekeeper-data");
     const core = new QueueKeeperCore({
       dataDir: localDataDir,
