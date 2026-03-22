@@ -300,7 +300,7 @@ test("idempotent draft creation returns the same job", () => {
   assert.equal(second.job.id, third.job.id);
 });
 
-test("public list exposes verified-pool jobs and hides direct dispatch jobs", () => {
+test("public list exposes all posted unaccepted jobs", () => {
   const core = createTestCore("pool");
   const direct = createDraft(core, { mode: "DIRECT_DISPATCH", title: "Direct only" });
   core.postJob({ jobId: direct.job.id, buyerToken: direct.buyerToken });
@@ -315,7 +315,23 @@ test("public list exposes verified-pool jobs and hides direct dispatch jobs", ()
 
   const publicJobs = core.listJobs("public").jobs;
   assert.ok(publicJobs.some((job) => job.title === "Pool listing"));
-  assert.ok(!publicJobs.some((job) => job.title === "Direct only"));
+  assert.ok(publicJobs.some((job) => job.title === "Direct only"));
+});
+
+test("posted direct dispatch tasks can be accepted by another verified runner", () => {
+  const core = createTestCore("dispatch-open");
+  const draft = createDraft(core, {
+    title: "Dispatch stays public"
+  });
+  core.postJob({ jobId: draft.job.id, buyerToken: draft.buyerToken });
+
+  const accepted = core.acceptJob(draft.job.id, "0xb0b0000000000000000000000000000000000002", {
+    status: "verified",
+    provider: "self",
+    reference: "dispatch-open-ref"
+  });
+
+  assert.equal(accepted.job.acceptedRunnerAddress, "0xb0b0000000000000000000000000000000000002");
 });
 
 test("seed restores one visible verified-pool job when none remain public", () => {
@@ -337,7 +353,7 @@ test("seed restores one visible verified-pool job when none remain public", () =
     provider: "self",
     reference: "self-seed-ref"
   });
-  assert.equal(firstCore.listJobs("public").jobs.length, 0);
+  assert.equal(firstCore.listJobs("public").jobs.filter((job) => job.mode === "VERIFIED_POOL").length, 0);
 
   const restartedCore = new QueueKeeperCore(options);
   assert.ok(restartedCore.listJobs("public").jobs.some((job) => job.mode === "VERIFIED_POOL"));

@@ -576,7 +576,7 @@ export class QueueKeeperCore {
     const jobs = rows.map((row) => this.mapJobRow(row));
     for (const row of jobs) this.reconcileJob(row.id);
     const visibleJobs = viewer === "public"
-      ? jobs.filter((job) => job.mode === "VERIFIED_POOL" && job.status === "posted" && !job.acceptedRunnerAddress)
+      ? jobs.filter((job) => job.status === "posted" && !job.acceptedRunnerAddress)
       : jobs;
     return {
       jobs: visibleJobs.map((job) => this.toView(this.getJobRecord(job.id), viewer))
@@ -622,9 +622,6 @@ export class QueueKeeperCore {
 
     if (job.status !== "posted") {
       throw this.error("INVALID_STATUS", "Only posted jobs can be accepted.");
-    }
-    if (job.mode === "DIRECT_DISPATCH" && job.dispatchRunnerAddress && job.dispatchRunnerAddress.toLowerCase() !== runnerAddress.toLowerCase()) {
-      throw this.error("RUNNER_NOT_DISPATCHED", "This dispatch job is reserved for another verified runner.");
     }
     if (verification.status !== "verified") {
       throw this.error("VERIFICATION_FAILED", verification.reason ?? "Runner verification failed.");
@@ -673,9 +670,6 @@ export class QueueKeeperCore {
 
   createSelfVerificationSession(jobId: string, runnerAddress: string, origin: string): SelfVerificationSessionView {
     const job = this.getJobRecord(jobId);
-    if (job.mode === "DIRECT_DISPATCH" && job.selectedRunnerAddress && job.selectedRunnerAddress.toLowerCase() !== runnerAddress.toLowerCase()) {
-      throw this.error("UNAUTHORIZED", "This dispatch is only available to the selected runner.");
-    }
     if (job.acceptedRunnerAddress && job.acceptedRunnerAddress.toLowerCase() !== runnerAddress.toLowerCase()) {
       throw this.error("UNAUTHORIZED", "Job is already accepted by another runner.");
     }
@@ -2092,17 +2086,10 @@ export class QueueKeeperCore {
   }
 
   private describePublicListing(job: CoreJobRecord) {
-    if (job.mode !== "VERIFIED_POOL") {
-      return {
-        status: "hidden" as const,
-        reason: "Direct dispatch tasks stay private and do not appear on the public /tasks board."
-      };
-    }
-
     if (job.status !== "posted") {
       return {
         status: "hidden" as const,
-        reason: "Only posted verified-pool tasks appear on the public /tasks board."
+        reason: "Only posted tasks appear on the public /tasks board."
       };
     }
 
@@ -2115,7 +2102,9 @@ export class QueueKeeperCore {
 
     return {
       status: "visible" as const,
-      reason: "This task is eligible for the public /tasks board."
+      reason: job.mode === "DIRECT_DISPATCH"
+        ? "This posted task appears on the public /tasks board. A selected runner is only a private preference until someone accepts."
+        : "This posted task appears on the public /tasks board until a runner accepts it."
     };
   }
 

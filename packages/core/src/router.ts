@@ -297,9 +297,6 @@ function normalizeBuyerJobFormInput(value: unknown) {
     ?? plannerPreview?.selectedRunnerAddress;
   const requestedMode = normalizeQueueJobMode(readOptionalString(body, ["mode"], "mode"));
   const mode = requestedMode ?? (selectedRunnerAddress ? "DIRECT_DISPATCH" : "VERIFIED_POOL");
-  if (mode === "DIRECT_DISPATCH" && !selectedRunnerAddress) {
-    throw invalidRequest("selectedRunnerAddress is required for DIRECT_DISPATCH. Use VERIFIED_POOL for a public board listing.");
-  }
   const scoutFeeUsd = readOptionalNumber(body, ["scoutFeeUsd", "scoutFee"], "scoutFeeUsd") ?? defaultPayoutLadder.scout;
   const arrivalFeeUsd = readOptionalNumber(body, ["arrivalFeeUsd", "arrivalFee"], "arrivalFeeUsd") ?? defaultPayoutLadder.arrival;
   const heartbeatFeeUsd = readOptionalNumber(body, ["heartbeatFeeUsd", "heartbeatFee"], "heartbeatFeeUsd") ?? defaultPayoutLadder.heartbeat;

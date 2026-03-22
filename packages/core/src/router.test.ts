@@ -258,13 +258,14 @@ test("task draft infers VERIFIED_POOL when no mode and no selected runner are su
   });
 
   assert.equal(response.status, 200);
-  const json = await response.json() as { job: { mode?: string; publicListingStatus?: string } };
+  const json = await response.json() as { job: { mode?: string; publicListingStatus?: string; publicListingReason?: string } };
   assert.equal(json.job.mode, "VERIFIED_POOL");
   assert.equal(json.job.publicListingStatus, "hidden");
+  assert.equal(json.job.publicListingReason, "Only posted tasks appear on the public /tasks board.");
 });
 
-test("task draft rejects DIRECT_DISPATCH when selected runner is missing", async () => {
-  installTestCore("draft-dispatch-requires-runner");
+test("task draft allows DIRECT_DISPATCH without treating the public board as private-only", async () => {
+  installTestCore("draft-dispatch-no-runner");
 
   const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks/drafts", {
     method: "POST",
@@ -282,14 +283,15 @@ test("task draft rejects DIRECT_DISPATCH when selected runner is missing", async
     })
   }), {
     plan: async () => {
-      throw new Error("Planner should not run during invalid draft creation.");
+      throw new Error("Planner should not run during draft creation.");
     },
     verify
   });
 
-  assert.equal(response.status, 400);
-  const json = await response.json() as { error: { message: string } };
-  assert.equal(json.error.message, "selectedRunnerAddress is required for DIRECT_DISPATCH. Use VERIFIED_POOL for a public board listing.");
+  assert.equal(response.status, 200);
+  const json = await response.json() as { job: { mode?: string; publicListingStatus?: string } };
+  assert.equal(json.job.mode, "DIRECT_DISPATCH");
+  assert.equal(json.job.publicListingStatus, "hidden");
 });
 
 test("post task accepts a completely empty body", async () => {

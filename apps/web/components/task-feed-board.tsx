@@ -1,7 +1,9 @@
 import type { QueueJobView } from "@queuekeeper/shared";
 
 function visibilityLabel(task: QueueJobView) {
-  return task.mode === "VERIFIED_POOL" ? "Any verified runner can inspect the redacted brief." : "This task is reserved for a chosen runner after verification.";
+  return task.mode === "VERIFIED_POOL"
+    ? "Any verified runner can inspect the redacted brief."
+    : "This posted task is public until a runner accepts it. Any selected runner stays a private preference.";
 }
 
 export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
@@ -34,7 +36,7 @@ export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
               <h3 className="subsection-title">{task.title}</h3>
               <span className="muted">{task.coarseArea}</span>
             </div>
-            <span className="chip info">{task.status}</span>
+          <span className="chip info">{task.status}</span>
           </div>
 
           <div className="feed-highlights">
@@ -54,6 +56,7 @@ export function TaskFeedBoard({ tasks }: { tasks: QueueJobView[] }) {
               <span className="muted">{task.payoutSummary}</span>
             </div>
           </div>
+          <p className="muted" style={{ marginTop: 12 }}>{task.publicListingReason}</p>
 
           <div className="cta-row" style={{ marginTop: 16 }}>
             <a className="button" href={`/tasks/${task.id}`}>View task</a>
