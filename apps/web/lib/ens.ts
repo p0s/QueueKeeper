@@ -23,6 +23,35 @@ export function isEnsInput(value: string | null | undefined) {
   return Boolean(value?.trim().toLowerCase().endsWith(".eth"));
 }
 
+function deriveImmediateResolution(rawValue: string | null | undefined): EnsResolution {
+  const value = rawValue?.trim() ?? "";
+  if (!value) {
+    return { address: null, ensName: null, error: null };
+  }
+
+  if (isAddress(value, { strict: false })) {
+    return {
+      address: getAddress(value),
+      ensName: null,
+      error: null
+    };
+  }
+
+  if (isEnsInput(value)) {
+    return {
+      address: null,
+      ensName: value.toLowerCase(),
+      error: null
+    };
+  }
+
+  return {
+    address: null,
+    ensName: null,
+    error: "Enter a valid EVM address or .eth name."
+  };
+}
+
 async function lookupEnsResolution(rawValue: string): Promise<EnsResolution> {
   const value = rawValue.trim();
   if (!value) {
@@ -78,11 +107,7 @@ export async function resolveAddressOrEns(value: string | null | undefined): Pro
 }
 
 export function useEnsIdentity(value: string | null | undefined) {
-  const [state, setState] = useState<EnsResolution>({
-    address: null,
-    ensName: null,
-    error: null
-  });
+  const [state, setState] = useState<EnsResolution>(() => deriveImmediateResolution(value));
 
   useEffect(() => {
     let active = true;

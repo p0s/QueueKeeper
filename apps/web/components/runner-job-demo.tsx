@@ -46,6 +46,22 @@ function resolveRunnerAction(
   label: string;
   body: string;
 } {
+  if (job.status === "completed" || job.status === "refunded" || job.status === "cancelled" || job.status === "expired") {
+    return {
+      kind: "wait",
+      label: "No runner action pending",
+      body: `This task is already ${job.status}.`
+    };
+  }
+
+  if (job.runnerVerified && !job.exactLocationVisibleToViewer) {
+    return {
+      kind: "wait",
+      label: "Already accepted",
+      body: "This task has already been accepted by a verified runner."
+    };
+  }
+
   if (!job.acceptedRunnerAddress) {
     if (!selfSession) {
       return {
@@ -116,7 +132,7 @@ export function RunnerJobDemo({
   const runnerIdentity = useEnsIdentity(runnerAddress);
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
   const nextAction = resolveRunnerAction(job, liveSelfMode, selfSession, nextProofStage);
-  const needsRunnerIdentitySetup = !job.acceptedRunnerAddress;
+  const needsRunnerIdentitySetup = !job.runnerVerified;
   const continueDemoVerification = useRef<() => void>(() => {});
   const demoAcceptTimeoutRef = useRef<number | null>(null);
 
