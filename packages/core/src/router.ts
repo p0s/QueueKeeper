@@ -415,6 +415,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
             ? await deps.plan(parsed.plannerInput)
             : undefined;
       const response = core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey);
+      await persistQueueKeeperCore(core);
       return json(200, withMessage(response, "Task draft created successfully."));
     }
 
