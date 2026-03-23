@@ -30,7 +30,7 @@ async function lookupEnsResolution(rawValue: string): Promise<EnsResolution> {
   }
 
   try {
-    if (isAddress(value)) {
+    if (isAddress(value, { strict: false })) {
       const ensName = await ensClient.getEnsName({ address: value as Address });
       return {
         address: getAddress(value),
