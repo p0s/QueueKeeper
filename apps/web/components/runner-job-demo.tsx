@@ -118,6 +118,7 @@ export function RunnerJobDemo({
   const nextAction = resolveRunnerAction(job, liveSelfMode, selfSession, nextProofStage);
   const needsRunnerIdentitySetup = !job.acceptedRunnerAddress;
   const continueDemoVerification = useRef<() => void>(() => {});
+  const demoAcceptTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
@@ -161,13 +162,12 @@ export function RunnerJobDemo({
   }, [liveSelfMode, selfSession]);
 
   useEffect(() => {
-    if (liveSelfMode || !selfSession || selfSession.status !== "pending" || job.acceptedRunnerAddress) return;
-    setAcceptState(`Demo verification QR shown · continuing automatically in 3 seconds (${selfSession.sessionId})`);
-    const timeout = window.setTimeout(() => {
-      continueDemoVerification.current();
-    }, 3000);
-    return () => window.clearTimeout(timeout);
-  }, [job.acceptedRunnerAddress, liveSelfMode, selfSession]);
+    return () => {
+      if (demoAcceptTimeoutRef.current) {
+        window.clearTimeout(demoAcceptTimeoutRef.current);
+      }
+    };
+  }, []);
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
     let binary = "";
@@ -184,19 +184,24 @@ export function RunnerJobDemo({
       setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
       return;
     }
-    const session = await createSelfVerificationSession(jobId, resolvedRunner.address);
+    const verifiedRunnerAddress = resolvedRunner.address;
+    const session = await createSelfVerificationSession(jobId, verifiedRunnerAddress);
     setSelfSession(session);
+    if (!liveSelfMode) {
+      setAcceptState(`Demo verification QR shown · continuing automatically in 3 seconds (${session.sessionId})`);
+      if (demoAcceptTimeoutRef.current) {
+        window.clearTimeout(demoAcceptTimeoutRef.current);
+      }
+      demoAcceptTimeoutRef.current = window.setTimeout(() => {
+        void acceptResolvedRunner(verifiedRunnerAddress);
+      }, 3000);
+      return;
+    }
     setAcceptState(`Self verification session created · ${session.sessionId}`);
   }
 
-  async function handleAccept() {
+  async function acceptResolvedRunner(address: string) {
     setAcceptState("Checking verification gate…");
-    const resolvedRunner = await resolveAddressOrEns(runnerAddress);
-    if (!resolvedRunner.address) {
-      setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
-      return;
-    }
-
     let txHash: string | undefined;
     if (sendLiveTx && onchainJobId) {
       try {
@@ -212,7 +217,7 @@ export function RunnerJobDemo({
     try {
       const accepted = await requestRunnerAcceptance({
         jobId,
-        runnerAddress: resolvedRunner.address,
+        runnerAddress: address,
         verificationPayload: {
           reference: verificationReference,
           sessionId: liveSelfMode ? selfSession?.sessionId : undefined,
@@ -227,6 +232,15 @@ export function RunnerJobDemo({
     } catch (error) {
       setAcceptState(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  async function handleAccept() {
+    const resolvedRunner = await resolveAddressOrEns(runnerAddress);
+    if (!resolvedRunner.address) {
+      setAcceptState(resolvedRunner.error ?? "Enter a valid EVM address or .eth name.");
+      return;
+    }
+    await acceptResolvedRunner(resolvedRunner.address);
   }
 
   continueDemoVerification.current = () => {

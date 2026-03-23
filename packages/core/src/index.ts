@@ -1667,6 +1667,39 @@ export class QueueKeeperCore {
           }
         },
         "/v1/tasks": {
+          post: {
+            summary: "Create and post task",
+            description: "Creates a private task draft and posts it in one buyer-facing request, returning buyerToken plus the posted task timeline.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/TaskDraftRequest" },
+                  example: taskDraftExample
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Task created and posted.",
+                content: {
+                  "application/json": {
+                    schema: {
+                      allOf: [
+                        { $ref: "#/components/schemas/TaskResponse" },
+                        {
+                          type: "object",
+                          properties: {
+                            buyerToken: { type: "string" }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
           get: {
             summary: "List redacted tasks",
             parameters: [
