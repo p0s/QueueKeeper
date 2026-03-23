@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { QueueJobView, QueueStageKey, SelfVerificationSessionView } from "@queuekeeper/shared";
 import {
@@ -47,31 +47,30 @@ function resolveRunnerAction(
   body: string;
 } {
   if (!job.acceptedRunnerAddress) {
-    if (!liveSelfMode) {
-      return {
-        kind: "accept-task",
-        label: "Accept task",
-        body: "Verification is mocked in this mode, so acceptance can proceed immediately."
-      };
-    }
     if (!selfSession) {
       return {
         kind: "start-verification",
         label: "Start verification",
-        body: "Verification must succeed before the exact destination and private instructions unlock."
+        body: liveSelfMode
+          ? "Verification must succeed before the exact destination and private instructions unlock."
+          : "QueueKeeper will show a demo Self QR, then continue automatically."
       };
     }
     if (selfSession.status !== "verified") {
       return {
-        kind: "finish-verification",
-        label: "Finish Self verification",
-        body: "Complete the QR or deeplink flow in Self, then come back to accept the task."
+        kind: liveSelfMode ? "finish-verification" : "wait",
+        label: liveSelfMode ? "Finish Self verification" : "Demo verification in progress",
+        body: liveSelfMode
+          ? "Complete the QR or deeplink flow in Self, then come back to accept the task."
+          : "The demo QR is on screen. QueueKeeper will continue automatically in a few seconds."
       };
     }
     return {
       kind: "accept-task",
       label: "Accept task",
-      body: "Verification has cleared, so the task can now unlock reveal access."
+      body: liveSelfMode
+        ? "Verification has cleared, so the task can now unlock reveal access."
+        : "The demo verification gate has cleared, so the task can now unlock reveal access."
     };
   }
 
@@ -118,6 +117,7 @@ export function RunnerJobDemo({
   const nextProofStage = job.stages.find((stage) => stage.status === "pending-proof");
   const nextAction = resolveRunnerAction(job, liveSelfMode, selfSession, nextProofStage);
   const needsRunnerIdentitySetup = !job.acceptedRunnerAddress;
+  const continueDemoVerification = useRef<() => void>(() => {});
 
   useEffect(() => {
     setOnchainJobId(getCachedOnchainJobId(jobId));
@@ -149,7 +149,7 @@ export function RunnerJobDemo({
   }, [initialRevealToken, jobId]);
 
   useEffect(() => {
-    if (!selfSession || selfSession.status !== "pending" || !selfSession.accessToken) return;
+    if (!liveSelfMode || !selfSession || selfSession.status !== "pending" || !selfSession.accessToken) return;
     const interval = window.setInterval(async () => {
       const next = await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken);
       setSelfSession(next);
@@ -158,7 +158,16 @@ export function RunnerJobDemo({
       }
     }, 3000);
     return () => window.clearInterval(interval);
-  }, [selfSession]);
+  }, [liveSelfMode, selfSession]);
+
+  useEffect(() => {
+    if (liveSelfMode || !selfSession || selfSession.status !== "pending" || job.acceptedRunnerAddress) return;
+    setAcceptState(`Demo verification QR shown · continuing automatically in 3 seconds (${selfSession.sessionId})`);
+    const timeout = window.setTimeout(() => {
+      continueDemoVerification.current();
+    }, 3000);
+    return () => window.clearTimeout(timeout);
+  }, [job.acceptedRunnerAddress, liveSelfMode, selfSession]);
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
     let binary = "";
@@ -219,6 +228,10 @@ export function RunnerJobDemo({
       setAcceptState(error instanceof Error ? error.message : String(error));
     }
   }
+
+  continueDemoVerification.current = () => {
+    void handleAccept();
+  };
 
   async function handleProofSubmit(stageId: string, stageKey: QueueStageKey, sequence?: number) {
     const proofHash = proofInputs[stageId] || makeDefaultProofHash(stageKey, `${jobId}-${sequence ?? 1}`);
@@ -331,10 +344,11 @@ export function RunnerJobDemo({
         ) : null}
 
         <VerificationCard verification={job.runnerVerification} />
-        {liveSelfMode && selfSession ? (
+        {selfSession ? (
           <div className="card">
-            <span className="eyebrow">Finish verification</span>
+            <span className="eyebrow">{liveSelfMode ? "Finish verification" : "Demo verification"}</span>
             <SelfQrPanel
+              demoMode={!liveSelfMode}
               onError={(error) => setAcceptState(error instanceof Error ? error.message : String(error))}
               onSuccess={async () => setSelfSession(await fetchSelfVerificationSession(selfSession.sessionId, selfSession.accessToken))}
               session={selfSession}

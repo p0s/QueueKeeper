@@ -29,7 +29,10 @@ export default async function RunnerJobPage({
       initialJob={job}
       initialRevealToken={revealToken}
       jobId={jobId}
-      liveSelfMode={process.env.SELF_MODE === "live"}
+      liveSelfMode={
+        process.env.QUEUEKEEPER_REQUIRE_LIVE_SELF === "true"
+        || process.env.NEXT_PUBLIC_QUEUEKEEPER_REQUIRE_LIVE_SELF === "true"
+      }
     />
   );
 }
