@@ -47,6 +47,10 @@ const defaultPayoutLadder = {
   maxBudget: 5
 } as const;
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -370,6 +374,66 @@ function toAgentDecision(
   return "complete";
 }
 
+async function waitForBuyerTask(jobId: string, buyerToken: string, expectedStatus?: string) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const freshCore = await getQueueKeeperCore();
+      const task = freshCore.getTask(jobId, "buyer", { buyerToken });
+      if (!expectedStatus || task.status === expectedStatus) {
+        return true;
+      }
+    } catch {
+      // Keep retrying while the durable snapshot catches up.
+    }
+    await sleep(200 * (attempt + 1));
+  }
+
+  return false;
+}
+
+async function waitForPublicListing(jobId: string) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const freshCore = await getQueueKeeperCore();
+      if (freshCore.listTasks("public").tasks.some((task) => task.id === jobId)) {
+        return true;
+      }
+    } catch {
+      // Keep retrying while the durable snapshot catches up.
+    }
+    await sleep(200 * (attempt + 1));
+  }
+
+  return false;
+}
+
+async function postTaskWithRetry(
+  core: Awaited<ReturnType<typeof getQueueKeeperCore>>,
+  request: { jobId: string; buyerToken: string; onchainJobId?: string | null; txHash?: string | null; delegation?: never }
+) {
+  let candidateCore = core;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const response = candidateCore.postTask(request);
+      await persistQueueKeeperCore(candidateCore);
+      await waitForPublicListing(request.jobId);
+      return response;
+    } catch (error) {
+      lastError = error;
+      const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code) : null;
+      if (code !== "NOT_FOUND") {
+        throw error;
+      }
+      await sleep(200 * (attempt + 1));
+      candidateCore = await getQueueKeeperCore();
+    }
+  }
+
+  throw lastError;
+}
+
 export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRouterDeps) {
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/^\/api/, "");
@@ -416,6 +480,7 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
             : undefined;
       const response = core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey);
       await persistQueueKeeperCore(core);
+      await waitForBuyerTask(response.job.id, response.buyerToken, "draft");
       return json(200, withMessage(response, "Task draft created successfully."));
     }
 
@@ -466,14 +531,13 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
 
       if (request.method === "POST" && segments[3] === "post") {
         const payload = await readOptionalJsonBody(request);
-        const response = core.postTask({
+        const response = await postTaskWithRetry(core, {
           jobId,
           buyerToken: bearer ?? "",
           onchainJobId: (payload.onchainJobId as string | null | undefined) ?? null,
           txHash: (payload.txHash as string | null | undefined) ?? null,
           delegation: payload.delegation as never
         });
-        await persistQueueKeeperCore(core);
         return json(200, withMessage(response, "Task posted successfully."));
       }
 
