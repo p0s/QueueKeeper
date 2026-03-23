@@ -120,7 +120,14 @@ export async function runPlanner(input: HiddenPlannerRequest) {
   return buildPreviewResult(input, "mock");
 }
 
+function requireLiveSelf() {
+  return String(process.env.QUEUEKEEPER_REQUIRE_LIVE_SELF ?? process.env.NEXT_PUBLIC_QUEUEKEEPER_REQUIRE_LIVE_SELF ?? "").toLowerCase() === "true";
+}
+
 function mockVerificationAllowed() {
+  if (!requireLiveSelf()) {
+    return true;
+  }
   if (String(process.env.QUEUEKEEPER_ALLOW_MOCK_VERIFICATION ?? "").toLowerCase() === "true") {
     return true;
   }
@@ -128,7 +135,7 @@ function mockVerificationAllowed() {
 }
 
 export async function verifyRunner(payload: AcceptJobVerificationPayload): Promise<SelfVerificationResult> {
-  if (process.env.SELF_MODE === "live" && process.env.SELF_API_URL) {
+  if (requireLiveSelf() && process.env.SELF_MODE === "live" && process.env.SELF_API_URL) {
     let proof: unknown;
     let publicSignals: string[] | undefined;
 
