@@ -18,6 +18,15 @@ function ensureDir(dirPath: string) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function checkpointSqliteFile(dbPath: string) {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+  } finally {
+    db.close();
+  }
+}
+
 export function getSupabaseStateConfig(): SupabaseStateConfig | null {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -79,6 +88,7 @@ export async function hydrateSupabaseState(config: SupabaseStateConfig) {
 
 export async function persistSupabaseState(config: SupabaseStateConfig, dirtyObjectKeys: string[] = []) {
   if (fs.existsSync(config.dbPath)) {
+    checkpointSqliteFile(config.dbPath);
     await config.client.storage.from(config.bucket).upload(config.stateKey, fs.readFileSync(config.dbPath), {
       upsert: true,
       contentType: "application/octet-stream"
