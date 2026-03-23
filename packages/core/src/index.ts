@@ -126,6 +126,7 @@ type QueueKeeperCoreConfig = {
   encryptionKey: Buffer;
   arbiterToken: string | null;
   seedDemoData?: boolean;
+  journalMode?: "WAL" | "DELETE";
 };
 
 type VerificationSessionRow = Record<string, unknown>;
@@ -268,11 +269,12 @@ export class QueueKeeperCore {
     const encryptionKey = config?.encryptionKey ?? getEncryptionKey(dataDir);
     const arbiterToken = config?.arbiterToken ?? process.env.QUEUEKEEPER_ARBITER_TOKEN ?? null;
     const seedDemoData = config?.seedDemoData ?? true;
+    const journalMode = config?.journalMode ?? "WAL";
 
     ensureDir(path.dirname(databasePath));
     ensureDir(objectDir);
 
-    this.config = { dataDir, databasePath, objectDir, encryptionKey, arbiterToken, seedDemoData };
+    this.config = { dataDir, databasePath, objectDir, encryptionKey, arbiterToken, seedDemoData, journalMode };
     this.db = new DatabaseSync(databasePath);
     this.objectStore = new EncryptedObjectStore(objectDir, encryptionKey);
     this.initialize();
@@ -283,7 +285,7 @@ export class QueueKeeperCore {
 
   initialize() {
     this.db.exec(`
-      PRAGMA journal_mode = WAL;
+      PRAGMA journal_mode = ${this.config.journalMode};
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
         buyer_token_hash TEXT NOT NULL,
@@ -2464,7 +2466,8 @@ export async function getQueueKeeperCore() {
       databasePath: supabase.dbPath,
       objectDir: supabase.objectDir,
       encryptionKey: getEncryptionKey(supabase.runtimeDir, true),
-      seedDemoData: false
+      seedDemoData: false,
+      journalMode: "DELETE"
     });
     coreRemoteSync.set(core, supabase);
     return core;
