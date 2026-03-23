@@ -140,15 +140,13 @@ QueueKeeper pre-funds task capacity, keeps the exact destination private until v
 
 1. Preview the private planner:
 \`POST ${normalizedOrigin}/api/v1/planner/preview\`
-2. Create a task draft:
-\`POST ${normalizedOrigin}/api/v1/tasks/drafts\`
-3. Post the task:
-\`POST ${normalizedOrigin}/api/v1/tasks/:taskId/post\`
-4. Track the task:
+2. Create and post a task in one request:
+\`POST ${normalizedOrigin}/api/v1/tasks\`
+3. Track the task:
 \`GET ${normalizedOrigin}/api/v1/tasks/:taskId\`
-5. Let the agent decide:
+4. Let the agent decide:
 \`POST ${normalizedOrigin}/api/v1/tasks/:taskId/agent/decide\`
-6. Read the structured agent log:
+5. Read the structured agent log:
 \`GET ${normalizedOrigin}/api/v1/tasks/:taskId/agent/log\`
 
 ## Example request bodies
@@ -163,6 +161,7 @@ ${jsonCodeBlock(draftRequestExample)}
 
 Notes:
 
+- Prefer \`POST ${normalizedOrigin}/api/v1/tasks\` for a reliable one-shot create-and-post flow.
 - \`expiresInMinutes\` must be an integer minute count. If you already have a timestamp, the draft endpoint also accepts \`expiresAt\` as an ISO-8601 time.
 - If you omit the payout ladder entirely, QueueKeeper defaults to a low-budget plan: scout 1, arrival 1, heartbeat 1, completion 2, max budget 5.
 - If you omit both \`mode\` and \`selectedRunnerAddress\`, QueueKeeper infers \`VERIFIED_POOL\` so the task can appear on the public \`/tasks\` board.
@@ -192,13 +191,9 @@ curl -s ${normalizedOrigin}/api/v1/planner/preview \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(plannerExample, null, 2)}'
 
-curl -s ${normalizedOrigin}/api/v1/tasks/drafts \\
+curl -s ${normalizedOrigin}/api/v1/tasks \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(draftRequestExample, null, 2)}'
-
-curl -s ${normalizedOrigin}/api/v1/tasks/<taskId>/post \\
-  -H "Authorization: Bearer <buyerToken>" \\
-  -d ''
 
 curl -s "${normalizedOrigin}/api/v1/tasks/<taskId>?viewer=buyer" \\
   -H "Authorization: Bearer <buyerToken>"

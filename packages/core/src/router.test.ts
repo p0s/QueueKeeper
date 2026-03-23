@@ -295,6 +295,42 @@ test("task draft allows DIRECT_DISPATCH without treating the public board as pri
   assert.equal(json.job.publicListingStatus, "hidden");
 });
 
+test("create-and-post task endpoint returns a posted task and buyer token", async () => {
+  installTestCore("create-and-post");
+
+  const response = await handleQueueKeeperApi(new Request("https://queuekeeper.test/api/v1/tasks", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      mode: "VERIFIED_POOL",
+      principalMode: "AGENT",
+      title: "Create and post",
+      coarseArea: "Seattle / Pike St",
+      exactLocation: "Starbucks, 1124 Pike St, Seattle, WA 98101",
+      hiddenNotes: "Scout first.",
+      expiresInMinutes: 60
+    })
+  }), {
+    plan: async () => {
+      throw new Error("Planner should not run during create-and-post.");
+    },
+    verify
+  });
+
+  assert.equal(response.status, 200);
+  const json = await response.json() as {
+    buyerToken: string;
+    message: string;
+    job: { status: string; publicListingStatus?: string };
+  };
+  assert.ok(json.buyerToken);
+  assert.equal(json.job.status, "posted");
+  assert.equal(json.job.publicListingStatus, "visible");
+  assert.equal(json.message, "Task created and posted successfully.");
+});
+
 test("post task accepts a completely empty body", async () => {
   installTestCore("post-empty-body");
 

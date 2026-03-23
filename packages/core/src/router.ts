@@ -470,6 +470,27 @@ export async function handleQueueKeeperApi(request: Request, deps: QueueKeeperRo
       return json(200, await deps.plan(payload));
     }
 
+    if (request.method === "POST" && pathname === "/v1/tasks") {
+      const parsed = normalizeBuyerJobFormInput(await request.json());
+      const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
+      const planner = parsed.payload.plannerPreview
+        ? undefined
+          : parsed.plannerInput
+            ? await deps.plan(parsed.plannerInput)
+            : undefined;
+      const draft = core.createTaskDraft(parseBuyerForm(parsed.payload, planner), idempotencyKey);
+      const timeline = core.postTask({
+        jobId: draft.job.id,
+        buyerToken: draft.buyerToken
+      });
+      await persistQueueKeeperCore(core);
+      await waitForPublicListing(draft.job.id);
+      return json(200, withMessage({
+        buyerToken: draft.buyerToken,
+        ...timeline
+      }, "Task created and posted successfully."));
+    }
+
     if (request.method === "POST" && (pathname === "/v1/jobs/drafts" || pathname === "/v1/tasks/drafts")) {
       const parsed = normalizeBuyerJobFormInput(await request.json());
       const idempotencyKey = request.headers.get("Idempotency-Key") ?? undefined;
