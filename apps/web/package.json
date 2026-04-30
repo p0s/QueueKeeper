@@ -10,7 +10,7 @@
     "lint": "pnpm exec biome lint app components lib next.config.ts package.json"
   },
   "dependencies": {
-    "@metamask/smart-accounts-kit": "0.4.0-beta.1",
+    "@metamask/smart-accounts-kit": "1.3.0",
     "@queuekeeper/core": "workspace:*",
     "@queuekeeper/sdk": "workspace:*",
     "@queuekeeper/shared": "workspace:*",
