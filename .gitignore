@@ -8,6 +8,7 @@ coverage
 .env
 .env.*
 !.env.example
+.local/
 artifacts
 cache
 broadcast
@@ -15,11 +16,14 @@ contracts/lib
 synthesis-registration.json
 
 .next
+build/
 *.tsbuildinfo
 packages/shared/dist
 
 .secrets/
+submission/
 submission.local.json
+submission.local.*
 .queuekeeper-data
 .queuekeeper-object-store
 **/.vercel
@@ -28,3 +32,6 @@ test-results
 tooling.md
 !.env.local.example
 synthesis_md-input/
+logs/
+*.log
+.cache/
