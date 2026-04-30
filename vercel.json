@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @queuekeeper/web build",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "outputDirectory": ".next",
+  "devCommand": "pnpm dev",
+  "ignoreCommand": "cd ../.. && pnpm typecheck && pnpm lint"
+}

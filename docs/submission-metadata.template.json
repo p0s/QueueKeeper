@@ -1,0 +1,43 @@
+{
+  "teamUUID": "REPLACE_WITH_TEAM_UUID",
+  "name": "QueueKeeper",
+  "description": "QueueKeeper lets a human or agent principal privately procure scarce real-world access one verified micro-step at a time. Principals pre-fund a task, reveal the destination only after verified acceptance, and pay only for each proof-backed step instead of trusting a stranger with the whole promise up front.",
+  "problemStatement": "Existing platforms for hiring humans in the loop still assume one-shot trust: pay a stranger up front, hope the large promise is fulfilled, and rely on post-hoc review or escrow disputes when reality diverges. That model is structurally wrong for scarce-access scouting and short-lived real-world opportunities where demand is uncertain up front, value arrives incrementally, and each small step is cheaply checkable. Buyers need a private way to buy information first and commitment later; runners need early repeated payment; and agents need explicit spend and reveal boundaries. QueueKeeper exists to replace upfront escrow-first trust with bounded-loss, proof-backed micro-steps.",
+  "repoURL": "https://github.com/p0s/QueueKeeper",
+  "trackUUIDs": [
+    "REPLACE_WITH_TRACK_UUIDS"
+  ],
+  "conversationLog": "2026-03-20\n- Finalized the public Vercel deployment path and moved the hosted demo onto a self-contained Next.js product surface.\n- Verified that the public app could execute the core planner and runner-accept flows without a localhost-only backend.\n\n2026-03-21\n- Replaced the old demo-only state path with a durable task lifecycle, typed /v1 API, staged proofs, repeated heartbeats, and receipts.\n- Extended the escrow and delegation test coverage so the staged payout model matched the product’s core story on testnet.\n\n2026-03-21\n- Redesigned the product into a task-first command center with clearer buyer, runner, and evidence flows.\n- Hardened privacy boundaries so exact destinations, reveal tokens, and runner assignment data did not leak through public endpoints.\n\n2026-03-22\n- Elevated Agent Mode and Human Mode into first-class product entrypoints and surfaced agent identity, execution logs, and sponsor evidence in-product.\n- Wired live sponsor-sidecar code for Uniswap budget normalization and Base/x402 paid venue hints into the same bounded-trust task loop.\n\n2026-03-22\n- Finalized the submission-facing UI: public hero, Human/Agent selector, light/dark theme support, command-center hierarchy, and public agent handoff via skill.md.\n- Prepared final submission fields, cover asset, Open Graph assets, and the official Synthesis-shaped submission payload template.",
+  "submissionMetadata": {
+    "agentFramework": "other",
+    "agentFrameworkOther": "custom typed task orchestration",
+    "agentHarness": "codex-cli",
+    "model": "gpt-5.4 plus Venice private planner",
+    "skills": [
+      "REPLACE_WITH_ACTUAL_AGENT_SKILL_IDS_USED"
+    ],
+    "tools": [
+      "Next.js",
+      "Vercel",
+      "Foundry",
+      "viem",
+      "wagmi",
+      "Venice",
+      "Self",
+      "Celo",
+      "Uniswap Trade API",
+      "x402"
+    ],
+    "helpfulResources": [
+      "https://synthesis.md/submission/skill.md",
+      "https://synthesis.md/skill.md",
+      "https://devfolio.notion.site/Synthesis-Builder-Guide-32156997768d810bbb8ef8967439efa0"
+    ],
+    "helpfulSkills": [],
+    "intention": "continuing",
+    "intentionNotes": "QueueKeeper is intended to continue as an agent-first private procurement product focused on proof-backed micropayments for scarce real-world access.",
+    "moltbookPostURL": ""
+  },
+  "deployedURL": "https://queuekeeper.xyz",
+  "videoURL": ""
+}

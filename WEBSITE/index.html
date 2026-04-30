@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QueueKeeper</title>
+    <meta name="description" content="QueueKeeper lets a user privately hire a verified human to scout and hold a place in line while an agent pays only as onchain proofs arrive." />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero card">
+        <span class="eyebrow">Private, delegated, escrowed queue procurement</span>
+        <h1>Hire a verified human to hold your place in line — without giving up control.</h1>
+        <p>
+          QueueKeeper lets an agent privately plan a queue errand, bind spend to a single job, and pay a runner only as onchain proofs arrive.
+        </p>
+        <div class="actions">
+          <a href="#how" class="btn primary">How it works</a>
+          <a href="#live" class="btn secondary">Live contracts</a>
+        </div>
+      </section>
+
+      <section class="grid three">
+        <article class="card"><h2>Private by default</h2><p>Exact destination, budget ceiling, and raw proof media stay hidden until they need to be revealed.</p></article>
+        <article class="card"><h2>Pay in stages</h2><p>Scout, arrival, heartbeat, and completion are separate releases. No uncapped spend. No full stranger prepay.</p></article>
+        <article class="card"><h2>Verified runner flow</h2><p>Only verified runners can accept, reveal location, and submit proof hashes for payout.</p></article>
+      </section>
+
+      <section id="how" class="card">
+        <h2>How it works</h2>
+        <ol>
+          <li>Buyer creates a private queue job and sets a capped payout plan.</li>
+          <li>Agent decides whether to scout first, hold immediately, or abort.</li>
+          <li>Verified runner accepts from a mobile-friendly flow.</li>
+          <li>Proof hashes unlock staged onchain payments.</li>
+          <li>Buyer gets a clean receipts timeline without leaking everything publicly.</li>
+        </ol>
+      </section>
+
+      <section id="live" class="grid two">
+        <article class="card">
+          <h2>Live Celo Sepolia contracts</h2>
+          <ul>
+            <li>Escrow: <code>0xb566298bf1c1afa55f0edc514b2f9d990c82f98c</code></li>
+            <li>Delegation policy: <code>0x8a1e766156d1107b99546c8d84f57f9dffd9bcb3</code></li>
+            <li>Proof registry: <code>0xc049de0d689bdf0186407a03708204c9e4199e49</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Why this is not just a gig app</h2>
+          <ul>
+            <li>The agent has bounded spend, not a blank check.</li>
+            <li>The privacy model is load-bearing.</li>
+            <li>The runner is paid for verifiable progress.</li>
+            <li>The money flow is onchain and inspectable.</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

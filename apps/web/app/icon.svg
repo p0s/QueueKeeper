@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="QueueKeeper icon">
+  <rect width="128" height="128" rx="28" fill="#f4f1eb"/>
+  <rect x="12" y="12" width="104" height="104" rx="24" fill="#ffffff" stroke="#ddd5c8" stroke-width="4"/>
+  <path d="M39 41c0-7.732 6.268-14 14-14h22c7.732 0 14 6.268 14 14v19c0 7.732-6.268 14-14 14H61.5l19.5 21" fill="none" stroke="#1f1d19" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+</svg>

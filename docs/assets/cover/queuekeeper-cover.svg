@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="QueueKeeper cover image">
+  <rect width="1600" height="900" fill="#f4f1eb"/>
+  <rect x="48" y="48" width="1504" height="804" rx="36" fill="#ffffff" stroke="#ddd5c8" stroke-width="4"/>
+
+  <g transform="translate(96 96)">
+    <rect x="0" y="0" width="88" height="88" rx="24" fill="#ffffff" stroke="#ddd5c8" stroke-width="4"/>
+    <path d="M28 29c0-7.18 5.82-13 13-13h21c7.18 0 13 5.82 13 13v18c0 7.18-5.82 13-13 13H49l17 18" fill="none" stroke="#1f1d19" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+    <text x="116" y="34" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6f685f" letter-spacing="4">QUEUEKEEPER</text>
+    <text x="116" y="68" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#6f685f">Private Scout-and-Hold Procurement</text>
+  </g>
+
+  <text x="96" y="290" font-family="Arial, Helvetica, sans-serif" font-size="138" font-weight="700" fill="#171512">
+    QueueKeeper
+  </text>
+  <text x="96" y="392" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700" fill="#1f1d19">
+    Trust any human
+  </text>
+  <text x="96" y="452" font-family="Arial, Helvetica, sans-serif" font-size="34" fill="#6f685f">
+    Private scout-and-hold procurement
+  </text>
+
+  <g transform="translate(96 620)">
+    <rect x="0" y="0" width="220" height="58" rx="29" fill="#f0ebe2" stroke="#ddd5c8" stroke-width="2"/>
+    <text x="110" y="37" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#1f1d19">Human + Agent</text>
+
+    <rect x="242" y="0" width="220" height="58" rx="29" fill="#f0ebe2" stroke="#ddd5c8" stroke-width="2"/>
+    <text x="352" y="37" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#1f1d19">Self-gated</text>
+
+    <rect x="484" y="0" width="220" height="58" rx="29" fill="#f0ebe2" stroke="#ddd5c8" stroke-width="2"/>
+    <text x="594" y="37" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#1f1d19">Pay per step</text>
+
+    <rect x="726" y="0" width="220" height="58" rx="29" fill="#f0ebe2" stroke="#ddd5c8" stroke-width="2"/>
+    <text x="836" y="37" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#1f1d19">Private reveal</text>
+  </g>
+</svg>
