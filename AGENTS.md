@@ -1,6 +1,6 @@
 # AGENTS.md
 
-QueueKeeper is a hackathon repo. Optimize for a crisp working demo, not architectural purity.
+QueueKeeper is a demo-first public repo. Optimize for a crisp working product, not architectural purity.
 
 ## Working rules
 

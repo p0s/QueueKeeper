@@ -14,22 +14,20 @@
     "@queuekeeper/core": "workspace:*",
     "@queuekeeper/sdk": "workspace:*",
     "@queuekeeper/shared": "workspace:*",
-    "@selfxyz/core": "1.2.0-beta.1",
-    "@selfxyz/qrcode": "1.0.22",
     "@x402/core": "^2.7.0",
     "@x402/evm": "^2.7.0",
     "@x402/fetch": "^2.7.0",
     "@x402/next": "^2.7.0",
-    "next": "15.5.14",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "next": "15.5.15",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "viem": "2.23.5",
     "wagmi": "2.14.16"
   },
   "devDependencies": {
     "@types/node": "22.13.10",
-    "@types/react": "19.0.10",
-    "@types/react-dom": "19.0.4",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "typescript": "5.8.2"
   }
 }

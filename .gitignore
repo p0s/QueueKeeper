@@ -26,3 +26,5 @@ submission.local.json
 playwright-report
 test-results
 tooling.md
+!.env.local.example
+synthesis_md-input/

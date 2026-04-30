@@ -10,7 +10,6 @@
     "lint": "pnpm exec biome lint src package.json"
   },
   "dependencies": {
-    "@selfxyz/core": "1.2.0-beta.1",
     "@queuekeeper/core": "workspace:*",
     "@queuekeeper/shared": "workspace:*",
     "dotenv": "16.4.7",

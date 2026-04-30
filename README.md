@@ -358,3 +358,15 @@ These historical links are useful for judges, but the local MVP does not depend 
 
 - Private local submission payload: `.secrets/submission.local.json`
 - Keep submission-only values there; do not create a tracked repo copy.
+
+
+## Security And Privacy
+
+- Public task views expose redacted task envelopes, not exact destinations or private notes.
+- Exact destinations, hidden instructions, handoff secrets, and proof media stay in encrypted local state until an authorized reveal/proof path is used.
+- Do not commit `.env.local`, `.queuekeeper-data`, `.queuekeeper-object-store`, `.secrets/`, `.vercel/`, live API keys, wallet credentials, or local submission payloads.
+- Default public/demo operation uses safe fallback paths when live third-party credentials are unavailable.
+
+## License
+
+MIT
