@@ -13,7 +13,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "test": "pnpm --filter @queuekeeper/core test && cd contracts && forge test -vv",
+    "contracts:install": "cd contracts && test -f lib/forge-std/src/Test.sol || forge install foundry-rs/forge-std@v1.15.0 --no-git --shallow",
+    "test": "pnpm --filter @queuekeeper/core test && pnpm contracts:install && cd contracts && forge test -vv",
     "test:smoke": "playwright test -c playwright.config.ts",
     "test:smoke:headed": "playwright test -c playwright.config.ts --headed",
     "playwright:install": "playwright install chromium"

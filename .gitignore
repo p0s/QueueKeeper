@@ -35,3 +35,10 @@ synthesis_md-input/
 logs/
 *.log
 .cache/
+
+# Local one-off maintenance scripts
+rewrite_*.py
+*.local.py
+*.scratch.py
+*.tmp.py
+.local-scripts/
